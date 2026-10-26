@@ -55,4 +55,10 @@ endif()
 # Include subdirectories to build as single executable
 include(core_lib/core_lib.cmake)
 include(app/app.cmake)
+
+# ArtFlow: beginner shell (studiocore/ + shell/) on the same core
+option(BUILD_ARTFLOW "Build the ArtFlow shell" ON)
+if(BUILD_ARTFLOW)
+    include(shell/shell.cmake)
+endif()
 include(tests/tests.cmake)

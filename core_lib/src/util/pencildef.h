@@ -224,7 +224,10 @@ const static int MaxFramesBound = 9999;
 #define IMPORT_REPOSITION_TYPE      "ImportRepositionType"
 
 // Settings Group/Key Name
+// Settings name; a program built on the core can define its own.
+#ifndef PENCIL2D
 #define PENCIL2D "Pencil"
+#endif
 #define SHORTCUTS_GROUP             "Shortcuts"
 #define SETTING_AUTO_SAVE           "AutoSave"
 #define SETTING_AUTO_SAVE_NUMBER    "AutosaveNumber"
