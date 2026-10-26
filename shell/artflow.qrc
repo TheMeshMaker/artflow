@@ -1,0 +1,6 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/artflow">
+        <file alias="artflow.svg">pics/artflow.svg</file>
+    </qresource>
+</RCC>
