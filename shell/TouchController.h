@@ -9,7 +9,9 @@
 #include <QElapsedTimer>
 #include <QObject>
 #include <QPointF>
+#include <QPointer>
 #include <QTimer>
+#include <QTransform>
 
 class QTouchEvent;
 class QWidget;
@@ -44,6 +46,11 @@ private:
     void sendMouse(int type, const QPointF &pos);
     void beginGesture(const QList<QPointF> &points);
     void updateGesture(const QList<QPointF> &points);
+    /// Moving the page shows a snapshot that follows the fingers; the
+    /// canvas draws itself again only once they let go.
+    void startLiveView();
+    void updateLiveView();
+    void endLiveView();
 
     StudioCore *m_core;
     QWidget *m_canvas;
@@ -65,6 +72,9 @@ private:
     qreal m_startAngle = 0.0;
     qreal m_startScale = 1.0;
     qreal m_startRotation = 0.0;
+    int m_gesturePoints = 0;
+    QTransform m_liveStart;
+    QPointer<QWidget> m_live;
 };
 
 #endif // ARTFLOW_TOUCHCONTROLLER_H

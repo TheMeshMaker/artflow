@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  SPDX-FileCopyrightText: 2026 ArtFlow contributors
  *
  *  SPDX-License-Identifier: GPL-2.0-or-later
@@ -1043,10 +1043,33 @@ private:
                   QStringLiteral("%1 -> %2 px").arg(m_before).arg(paintedPixels()));
             m_scaleBefore = editor()->view()->scaling();
             touch(QEvent::TouchBegin, {at(-100, 0), at(100, 0)}, QEventPoint::Pressed);
+            QElapsedTimer gestureClock;
+            gestureClock.start();
             for (int i = 1; i <= 10; ++i) {
                 touch(QEvent::TouchUpdate, {at(-100 - i * 10, 0), at(100 + i * 10, 0)}, QEventPoint::Updated);
+                QElapsedTimer frame;
+                frame.start();
+                while (frame.elapsed() < 10) QApplication::processEvents(QEventLoop::AllEvents, 5);
+                canvas()->repaint();
             }
+            const qreal perStep = (gestureClock.elapsed() - 10 * 10) / 10.0;
             touch(QEvent::TouchEnd, {at(-200, 0), at(200, 0)}, QEventPoint::Released);
+            log(QStringLiteral("INFO  pinch: %1 ms of work per step (painting included)").arg(perStep, 0, 'f', 1));
+            {
+                // For comparison: the whole canvas drawn again at each zoom step.
+                ViewManager *view = editor()->view();
+                const qreal scale = view->scaling();
+                QElapsedTimer full;
+                full.start();
+                for (int i = 1; i <= 10; ++i) {
+                    view->scale(scale * (1.0 + i * 0.02));
+                    canvas()->repaint();
+                }
+                log(QStringLiteral("INFO  redrawing the whole canvas instead: %1 ms per step").arg(full.elapsed() / 10.0, 0, 'f', 1));
+                view->scale(scale);
+            }
+            check(QStringLiteral("pinching keeps up with the fingers (under 16 ms a step)"), perStep < 16.0,
+                  QStringLiteral("%1 ms").arg(perStep, 0, 'f', 1));
             settle();
             const qreal ratio = editor()->view()->scaling() / m_scaleBefore;
             check(QStringLiteral("two fingers pinch to zoom"), ratio > 1.8 && ratio < 2.2, QStringLiteral("zoom x%1").arg(ratio, 0, 'f', 2));

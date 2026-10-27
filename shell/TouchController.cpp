@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  SPDX-FileCopyrightText: 2026 ArtFlow contributors
  *
  *  SPDX-License-Identifier: GPL-2.0-or-later
@@ -6,6 +6,8 @@
 #include "TouchController.h"
 
 #include <QApplication>
+#include <QPainter>
+#include <QPixmap>
 #include <QLineF>
 #include <QMouseEvent>
 #include <QSettings>
@@ -14,7 +16,6 @@
 #include <QWidget>
 #include <QtMath>
 
-#include "canvaspainter.h"
 #include "editor.h"
 #include "pencildef.h"
 #include "viewmanager.h"
@@ -37,6 +38,49 @@ const int TapMs = 280;
 const qreal TapTravel = 12.0;
 /// Turning snaps to the nearest quarter turn within this many degrees.
 const qreal SnapDegrees = 4.0;
+
+/// The canvas as it was when the fingers came down, drawn moved, scaled and
+/// turned with them: one picture to move instead of every layer to redraw.
+class LiveView : public QWidget
+{
+public:
+    LiveView(QWidget *canvas, const QImage &snapshot, const QColor &surround)
+        : QWidget(canvas)
+        , m_snapshot(QPixmap::fromImage(snapshot))
+        , m_surround(surround)
+    {
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+        setAttribute(Qt::WA_OpaquePaintEvent);
+        setGeometry(canvas->rect());
+    }
+    void setTransform(const QTransform &transform)
+    {
+        m_transform = transform;
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter painter(this);
+        painter.fillRect(rect(), m_surround);
+        painter.setTransform(m_transform);
+        painter.drawPixmap(QRectF(rect()), m_snapshot, QRectF(m_snapshot.rect()));
+    }
+
+private:
+    QPixmap m_snapshot;
+    QColor m_surround;
+    QTransform m_transform;
+};
+
+bool fromTouch(const QMouseEvent *event)
+{
+    // Mouse clicks Windows or Qt made up from a finger.
+    if (event->source() == Qt::MouseEventSynthesizedBySystem) return true;
+    return event->source() == Qt::MouseEventSynthesizedByQt && event->pointingDevice()
+        && event->pointingDevice()->type() == QInputDevice::DeviceType::TouchScreen;
+}
 }
 
 TouchController::TouchController(StudioCore *core, QWidget *canvas)
@@ -75,6 +119,14 @@ bool TouchController::eventFilter(QObject *watched, QEvent *event)
         case QEvent::TabletMove:
         case QEvent::TabletRelease:
             m_penClock.restart();
+            break;
+        case QEvent::MouseButtonPress:
+        case QEvent::MouseMove:
+        case QEvent::MouseButtonRelease:
+        case QEvent::MouseButtonDblClick:
+            // Those would draw behind the gesture's back: fingers come through
+            // touch events only, and this controller draws for them itself.
+            if (fromTouch(static_cast<QMouseEvent *>(event))) return true;
             break;
         case QEvent::TouchBegin:
         case QEvent::TouchUpdate:
@@ -127,11 +179,12 @@ bool TouchController::handle(QTouchEvent *event)
                 if (m_since.elapsed() < CancelMs) m_core->history()->undo();
             }
             m_wait.stop();
-            if (m_state == State::Gesture) {
+            if (m_state == State::Gesture && int(points.size()) == m_gesturePoints) {
                 // Many touch updates come per screen frame; only the latest counts.
                 m_pending = points;
                 if (!m_frame.isActive()) m_frame.start();
             } else {
+                // New fingers (or one lifted): carry on from where they are now.
                 beginGesture(points);
             }
             return true;
@@ -151,7 +204,11 @@ bool TouchController::handle(QTouchEvent *event)
                 ViewManager *view = m_core->editor()->view();
                 const QPointF from = view->mapScreenToCanvas(m_last);
                 const QPointF to = view->mapScreenToCanvas(point);
-                view->translate(view->translation() + (to - from));
+                {
+                    const QSignalBlocker quiet(view);
+                    view->translate(view->translation() + (to - from));
+                }
+                updateLiveView();
             }
             m_last = point;
         }
@@ -163,10 +220,8 @@ bool TouchController::handle(QTouchEvent *event)
         if (m_state == State::Gesture) {
             m_frame.stop();
             if (m_pending.size() >= 2) updateGesture(m_pending);
-            // Smooth again now the page stands still.
-            CanvasPainter::setSmoothScaling(true);
-            m_canvas->update();
         }
+        if (m_state == State::Gesture || m_state == State::Panning) endLiveView();
         if (m_state == State::Waiting && event->type() == QEvent::TouchEnd) {
             // A quick tap leaves a dot.
             startDrawing();
@@ -195,6 +250,7 @@ void TouchController::startDrawing()
     }
     if (!fingersDraw()) {
         m_state = State::Panning;
+        startLiveView();
         return;
     }
     m_state = State::Drawing;
@@ -227,9 +283,48 @@ void TouchController::beginGesture(const QList<QPointF> &points)
     m_last = centre;
     m_pending.clear();
     m_held.clear();
+    m_gesturePoints = int(points.size());
     m_state = State::Gesture;
-    // While the page moves, plain scaling keeps up with the fingers.
-    CanvasPainter::setSmoothScaling(false);
+    startLiveView();
+}
+
+void TouchController::startLiveView()
+{
+    if (m_live) return;
+    m_liveStart = m_core->editor()->view()->getView();
+
+    // The canvas alone, without the controls that sit on it.
+    QList<QWidget *> hidden;
+    for (QWidget *child : m_canvas->findChildren<QWidget *>(Qt::FindDirectChildrenOnly)) {
+        if (child->isVisible()) {
+            child->hide();
+            hidden << child;
+        }
+    }
+    const QImage snapshot = m_canvas->grab().toImage();
+    for (QWidget *child : hidden) child->show();
+
+    LiveView *live = new LiveView(m_canvas, snapshot, snapshot.isNull() ? QColor(Qt::black) : snapshot.pixelColor(1, 1));
+    live->show();
+    live->raise();
+    m_live = live;
+}
+
+void TouchController::updateLiveView()
+{
+    if (!m_live) return;
+    // From where things were on screen when the fingers came down to where
+    // they are now.
+    static_cast<LiveView *>(m_live.data())->setTransform(m_liveStart.inverted() * m_core->editor()->view()->getView());
+}
+
+void TouchController::endLiveView()
+{
+    if (!m_live) return;
+    delete m_live;
+    // Now the canvas draws the page once, properly, where the fingers left it.
+    ViewManager *view = m_core->editor()->view();
+    view->translate(view->translation());
 }
 
 void TouchController::updateGesture(const QList<QPointF> &points)
@@ -240,21 +335,19 @@ void TouchController::updateGesture(const QList<QPointF> &points)
     const QPointF centre = (a + b) / 2.0;
 
     {
-        // One repaint per update: only the last change tells the canvas.
+        // The canvas is not told until the gesture ends; the live view
+        // follows the fingers meanwhile.
         const QSignalBlocker quiet(view);
         view->scale(m_startScale * QLineF(a, b).length() / m_startDistance);
-    }
-    qreal rotation = m_startRotation + qRadiansToDegrees(qAtan2(b.y() - a.y(), b.x() - a.x()) - m_startAngle);
-    const qreal quarter = qRound(rotation / 90.0) * 90.0;
-    if (qAbs(rotation - quarter) < SnapDegrees) rotation = quarter;
-    {
-        const QSignalBlocker quiet(view);
+        qreal rotation = m_startRotation + qRadiansToDegrees(qAtan2(b.y() - a.y(), b.x() - a.x()) - m_startAngle);
+        const qreal quarter = qRound(rotation / 90.0) * 90.0;
+        if (qAbs(rotation - quarter) < SnapDegrees) rotation = quarter;
         view->rotate(float(rotation));
+        // The point of the drawing that was under the fingers stays under them.
+        const QPointF under = view->mapScreenToCanvas(centre);
+        view->translate(view->translation() + (under - m_canvasAnchor));
     }
-
-    // The point of the drawing that was under the fingers stays under them.
-    const QPointF under = view->mapScreenToCanvas(centre);
-    view->translate(view->translation() + (under - m_canvasAnchor));
+    updateLiveView();
 
     // A pinch is not a tap even when its middle stays put.
     m_travel += QLineF(centre, m_last).length();
