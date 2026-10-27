@@ -42,6 +42,13 @@ public:
     /// Chooses a style for its tool; the tool takes the size this style had last time.
     void select(const QString &id);
 
+    /// Mirror drawing: brush, pencil and eraser strokes are mirrored across
+    /// the vertical centre line of the page. Off at every start.
+    bool symmetry() const;
+    void setSymmetry(bool on);
+    /// The mirror line, in canvas x.
+    qreal symmetryAxis() const;
+
     /// A sample stroke drawn with \p preset, for the brush picker.
     static QImage preview(const BrushPreset &preset, const QSize &size, qreal devicePixelRatio, const QColor &color,
                           bool compact = false);
@@ -54,6 +61,7 @@ public:
 
 Q_SIGNALS:
     void presetChanged(ToolType tool, const QString &id);
+    void symmetryChanged(bool on);
 
 private:
     static BrushPreset eraserPreset();
@@ -64,6 +72,7 @@ private:
     QHash<int, QString> m_current;
     BrushStroke m_stroke;
     bool m_applying = false;
+    bool m_symmetry = false;
 };
 
 #endif // ARTFLOW_STUDIOBRUSHES_H

@@ -414,3 +414,162 @@ void SwatchDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option
 
     painter->restore();
 }
+
+// --------------------------------------------------------------- ValueSlider
+
+namespace {
+const int LabelHeight = 18;
+const int TrackHeight = 6;
+const qreal KnobRadius = 8.0;
+}
+
+ValueSlider::ValueSlider(const QString &label, int minimum, int maximum, int value, QWidget *parent)
+    : QWidget(parent)
+    , m_label(label)
+    , m_min(minimum)
+    , m_max(qMax(minimum + 1, maximum))
+    , m_value(qBound(minimum, value, maximum))
+    , m_default(qBound(minimum, value, maximum))
+{
+    setCursor(Qt::PointingHandCursor);
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+}
+
+int ValueSlider::value() const
+{
+    return m_value;
+}
+
+void ValueSlider::setValue(int value)
+{
+    value = qBound(m_min, value, m_max);
+    if (value == m_value) return;
+    m_value = value;
+    update();
+}
+
+void ValueSlider::setSuffix(const QString &suffix)
+{
+    m_suffix = suffix;
+    update();
+}
+
+QSize ValueSlider::sizeHint() const
+{
+    return QSize(220, LabelHeight + 22);
+}
+
+QSize ValueSlider::minimumSizeHint() const
+{
+    return QSize(120, LabelHeight + 22);
+}
+
+QRectF ValueSlider::trackRect() const
+{
+    return QRectF(KnobRadius, LabelHeight + 8, width() - 2 * KnobRadius, TrackHeight);
+}
+
+void ValueSlider::paintEvent(QPaintEvent *event)
+{
+    Q_UNUSED(event);
+
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+
+    painter.setFont(ArtflowTheme::uiFont(8.5, QFont::Medium));
+    painter.setPen(isEnabled() ? ArtflowTheme::textMuted() : ArtflowTheme::textFaint());
+    painter.drawText(QRectF(2, 0, width() * 0.7, LabelHeight), Qt::AlignVCenter | Qt::AlignLeft, m_label);
+    painter.setFont(ArtflowTheme::uiFont(8.5, QFont::DemiBold));
+    painter.setPen(isEnabled() ? ArtflowTheme::text() : ArtflowTheme::textFaint());
+    const QString number = (m_value > 0 && m_min < 0 ? QStringLiteral("+") : QString()) + QString::number(m_value) + m_suffix;
+    painter.drawText(QRectF(width() * 0.5, 0, width() * 0.5 - 2, LabelHeight), Qt::AlignVCenter | Qt::AlignRight, number);
+
+    const QRectF track = trackRect();
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(ArtflowTheme::raised());
+    painter.drawRoundedRect(track.adjusted(-1, -1, 1, 1), TrackHeight / 2.0 + 1, TrackHeight / 2.0 + 1);
+
+    auto xOf = [this, &track](int value) { return track.left() + track.width() * qreal(value - m_min) / (m_max - m_min); };
+    const qreal knobX = xOf(m_value);
+    // Two-sided ranges fill from zero, the others from the low end.
+    const qreal fromX = m_min < 0 ? xOf(0) : track.left();
+    const QRectF fill(qMin(fromX, knobX), track.top(), qAbs(knobX - fromX), track.height());
+    painter.setBrush(isEnabled() ? ArtflowTheme::accent() : ArtflowTheme::line());
+    painter.drawRoundedRect(fill, TrackHeight / 2.0, TrackHeight / 2.0);
+    if (m_min < 0) {
+        painter.setBrush(ArtflowTheme::textFaint());
+        painter.drawRoundedRect(QRectF(xOf(0) - 1, track.top() - 3, 2, track.height() + 6), 1, 1);
+    }
+
+    const QPointF knob(knobX, track.center().y());
+    painter.setBrush(isEnabled() ? ArtflowTheme::text() : ArtflowTheme::textFaint());
+    painter.setPen(m_hovered || m_dragging ? QPen(ArtflowTheme::accent(), 2.0) : QPen(ArtflowTheme::window(), 1.5));
+    painter.drawEllipse(knob, KnobRadius - 1, KnobRadius - 1);
+}
+
+void ValueSlider::change(int value)
+{
+    value = qBound(m_min, value, m_max);
+    if (value == m_value) return;
+    m_value = value;
+    update();
+    Q_EMIT valueChanged(value);
+}
+
+void ValueSlider::setFromX(qreal x)
+{
+    const QRectF track = trackRect();
+    const qreal t = qBound(0.0, (x - track.left()) / track.width(), 1.0);
+    change(qRound(m_min + t * (m_max - m_min)));
+}
+
+void ValueSlider::mousePressEvent(QMouseEvent *event)
+{
+    if (event->button() != Qt::LeftButton) return;
+    m_dragging = true;
+    setFromX(event->position().x());
+}
+
+void ValueSlider::mouseMoveEvent(QMouseEvent *event)
+{
+    if (m_dragging) setFromX(event->position().x());
+}
+
+void ValueSlider::mouseReleaseEvent(QMouseEvent *event)
+{
+    Q_UNUSED(event);
+    if (!m_dragging) return;
+    m_dragging = false;
+    update();
+    Q_EMIT released();
+}
+
+void ValueSlider::mouseDoubleClickEvent(QMouseEvent *event)
+{
+    Q_UNUSED(event);
+    change(m_default);
+    Q_EMIT released();
+}
+
+void ValueSlider::wheelEvent(QWheelEvent *event)
+{
+    const int steps = event->angleDelta().y() / 120;
+    if (steps == 0) return;
+    change(m_value + steps * qMax(1, (m_max - m_min) / 50));
+    Q_EMIT released();
+    event->accept();
+}
+
+void ValueSlider::enterEvent(QEnterEvent *event)
+{
+    m_hovered = true;
+    update();
+    QWidget::enterEvent(event);
+}
+
+void ValueSlider::leaveEvent(QEvent *event)
+{
+    m_hovered = false;
+    update();
+    QWidget::leaveEvent(event);
+}

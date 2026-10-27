@@ -47,6 +47,9 @@ public:
     /// Builds the chrome and enters \p modeId (or the last used mode).
     void start(const QString &modeId = QString());
 
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 public Q_SLOTS:
     void showPenButtonsDialog();
     void showCheatSheet();
@@ -68,6 +71,9 @@ private:
     void populateMenu();
     void arrangeRightColumn(int width);
     void showBrushLibrary(QWidget *anchor, bool below);
+    void rebuildContextBar();
+    void syncContextBar();
+    void showAdjustPanel();
     QList<QDockWidget *> rightColumn() const;
 
 private:
@@ -84,6 +90,11 @@ private:
     QToolButton *m_undo {nullptr};
     QToolButton *m_redo {nullptr};
     QToolButton *m_menuButton {nullptr};
+    QWidget *m_contextBar {nullptr};
+    QAction *m_contextAction {nullptr};
+    QHBoxLayout *m_contextLayout {nullptr};
+    QToolButton *m_symmetry {nullptr};
+    QToolButton *m_adjustButton {nullptr};
 
     QDockWidget *m_timelineDock {nullptr};
     QStackedWidget *m_timelineStack {nullptr};

@@ -28,12 +28,24 @@ public:
     QVector<Layer *> layers() const;
 
     Layer *activeLayer() const;
+    /// Whether \p layer is still part of the document (a view may hold an
+    /// old pointer for a moment after a layer is deleted or a file opens).
+    bool contains(Layer *layer) const;
     void setActiveLayer(Layer *layer);
 
     /// Adds a drawing layer above the active one, without a name prompt.
     Layer *addDrawingLayer();
     /// Asks for confirmation (layer deletion cannot be undone in the engine).
     void removeActiveLayer();
+    /// A copy of the active layer, with all its drawings, above it.
+    Layer *duplicateActiveLayer();
+    void rename(Layer *layer, const QString &name);
+    /// Moves \p layer to \p row of layers(), where row 0 is the top (a
+    /// camera layer at the very bottom stays there).
+    void moveTo(Layer *layer, int row);
+
+    qreal opacity(Layer *layer) const;
+    void setOpacity(Layer *layer, qreal opacity);
 
     bool isVisible(Layer *layer) const;
     void setVisible(Layer *layer, bool visible);

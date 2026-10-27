@@ -100,6 +100,55 @@ private:
 };
 
 /**
+ * A flat slider with its name and value above the track: the fill starts
+ * at the low end, or at zero when the range goes below it. Drag anywhere,
+ * scroll, or double-click to go back to the starting value.
+ */
+class ValueSlider : public QWidget
+{
+    Q_OBJECT
+public:
+    ValueSlider(const QString &label, int minimum, int maximum, int value = 0, QWidget *parent = nullptr);
+
+    int value() const;
+    /// Moves the slider without emitting valueChanged.
+    void setValue(int value);
+    void setSuffix(const QString &suffix);
+
+    QSize sizeHint() const override;
+    QSize minimumSizeHint() const override;
+
+Q_SIGNALS:
+    void valueChanged(int value);
+    /// The drag ended.
+    void released();
+
+protected:
+    void paintEvent(QPaintEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
+    void enterEvent(QEnterEvent *event) override;
+    void leaveEvent(QEvent *event) override;
+
+private:
+    QRectF trackRect() const;
+    void change(int value);
+    void setFromX(qreal x);
+
+    QString m_label;
+    QString m_suffix;
+    int m_min;
+    int m_max;
+    int m_value;
+    int m_default;
+    bool m_dragging {false};
+    bool m_hovered {false};
+};
+
+/**
  * Paints the engine's colour palette as rounded swatches: a grid of tiles
  * with a ring around the chosen one, or rows with the colour's name.
  */

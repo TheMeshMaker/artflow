@@ -41,6 +41,7 @@
 #include "undoredomanager.h"
 #include "viewmanager.h"
 
+#include "StudioAdjust.h"
 #include "StudioBrushes.h"
 #include "StudioCore.h"
 #include "StudioHistory.h"
@@ -52,7 +53,11 @@
 #include "ArtflowShell.h"
 #include "BeginnerShortcuts.h"
 #include "ModeManager.h"
+#include "panels/AdjustPanel.h"
 #include "panels/BrushLibrary.h"
+#include "panels/LayerStackPanel.h"
+#include "tools/ShapeTool.h"
+#include "tools/TextTool.h"
 
 namespace {
 
@@ -298,6 +303,37 @@ private:
         if (!layer || layer->type() != Layer::BITMAP) return QImage();
         BitmapImage *bitmap = static_cast<LayerBitmap *>(layer)->getLastBitmapImageAtFrame(editor()->currentFrame());
         return bitmap && bitmap->image() ? *bitmap->image() : QImage();
+    }
+
+    /// The pixel of the current drawing under a point of the canvas widget.
+    QRgb pixelAt(const QPointF &screenPoint) const
+    {
+        Layer *layer = editor()->layers()->currentLayer();
+        if (!layer || layer->type() != Layer::BITMAP) return 0;
+        BitmapImage *bitmap = static_cast<LayerBitmap *>(layer)->getLastBitmapImageAtFrame(editor()->currentFrame());
+        if (!bitmap || !bitmap->image()) return 0;
+        const QPoint p = editor()->view()->mapScreenToCanvas(screenPoint).toPoint() - bitmap->topLeft();
+        const QImage image = bitmap->image()->convertToFormat(QImage::Format_ARGB32);
+        return image.rect().contains(p) ? image.pixel(p) : 0;
+    }
+
+    /// A press, a drag and a release with the pen, for click-and-drag tools.
+    void penDrag(const QPointF &from, const QPointF &to, Qt::KeyboardModifiers modifiers = Qt::NoModifier)
+    {
+        auto send = [this, modifiers](QEvent::Type type, const QPointF &pos, qreal pressure, Qt::MouseButton button,
+                                      Qt::MouseButtons buttons) {
+            QTabletEvent event(type, testDevice(QPointingDevice::PointerType::Pen), pos, canvas()->mapToGlobal(pos), pressure,
+                               0.f, 0.f, 0.f, 0.0, 0.f, modifiers, button, buttons);
+            QApplication::sendEvent(canvas(), &event);
+        };
+        send(QEvent::TabletMove, from, 0.0, Qt::NoButton, Qt::NoButton);
+        send(QEvent::TabletPress, from, 0.8, Qt::LeftButton, Qt::LeftButton);
+        for (const QPointF &point : line(from, to, 16).mid(1)) {
+            send(QEvent::TabletMove, point, 0.8, Qt::NoButton, Qt::LeftButton);
+            QApplication::processEvents();
+        }
+        send(QEvent::TabletRelease, to, 0.0, Qt::LeftButton, Qt::NoButton);
+        settle();
     }
 
     /// Non-transparent pixels of the drawing shown on the active layer.
@@ -696,9 +732,186 @@ private:
                 library->close();
             }
             m_core->tools()->activate(ToolIntent::Brush);
+            freshFrame();
+        };
+
+        // Shapes, lasso fill, text, symmetry
+        m_steps << [this]() {
+            editor()->color()->setFrontColor(QColor(40, 90, 200));
+            useStyle(QStringLiteral("ink-pen"));
+            m_core->tools()->setBrushSize(6);
+            m_core->tools()->activate(ToolIntent::Shapes);
+            m_core->shapeTool()->setShape(ShapeTool::Rectangle);
+            m_core->shapeTool()->setFilled(true);
+            m_before = paintedPixels();
+            penDrag(at(-520, -300), at(-300, -120));
+            m_shell->window()->grab(QRect(0, 0, m_shell->window()->width(), 60))
+                .save(m_out.absoluteFilePath(QStringLiteral("shapes-bar.png")));
+        };
+        m_steps << [this]() {
+            check(QStringLiteral("Shapes draws a filled rectangle"),
+                  paintedPixels() > m_before + 2000 && qAlpha(pixelAt(at(-410, -210))) > 200,
+                  QStringLiteral("%1 -> %2 px").arg(m_before).arg(paintedPixels()));
+            check(QStringLiteral("a shape is one undo step"), m_core->history()->canUndo());
+            m_core->shapeTool()->setShape(ShapeTool::Ellipse);
+            m_core->shapeTool()->setFilled(false);
+            m_before = paintedPixels();
+            penDrag(at(-220, -300), at(0, -120));
+        };
+        m_steps << [this]() {
+            check(QStringLiteral("an unfilled ellipse is only its outline"),
+                  paintedPixels() > m_before + 300 && qAlpha(pixelAt(at(-110, -210))) == 0,
+                  QStringLiteral("%1 -> %2 px, centre alpha %3").arg(m_before).arg(paintedPixels()).arg(qAlpha(pixelAt(at(-110, -210)))));
+            m_core->shapeTool()->setShape(ShapeTool::Line);
+            m_before = paintedPixels();
+            penDrag(at(60, -300), at(300, -150), Qt::ShiftModifier);
+        };
+        m_steps << [this]() {
+            check(QStringLiteral("Shift keeps a line at 45 degrees"), paintedPixels() > m_before + 200
+                      && qAlpha(pixelAt(at(60, -300) + QPointF(100, 100))) > 100,
+                  QStringLiteral("%1 -> %2 px").arg(m_before).arg(paintedPixels()));
+
+            m_core->tools()->activate(ToolIntent::LassoFill);
+            editor()->color()->setFrontColor(QColor(230, 120, 60));
+            m_before = paintedPixels();
+            QVector<QPointF> loop;
+            for (int i = 0; i <= 40; ++i) {
+                const qreal t = i / 40.0 * 2 * M_PI;
+                loop << at(450 + 120 * qCos(t), -210 + 80 * qSin(t));
+            }
+            pressureStroke(loop, QVector<qreal>(loop.size(), 0.8));
+        };
+        m_steps << [this]() {
+            check(QStringLiteral("Lasso Fill fills the area drawn around"),
+                  paintedPixels() > m_before + 5000 && qAlpha(pixelAt(at(450, -210))) > 200,
+                  QStringLiteral("%1 -> %2 px").arg(m_before).arg(paintedPixels()));
+
+            m_core->tools()->activate(ToolIntent::Text);
+            editor()->color()->setFrontColor(QColor(20, 20, 30));
+            m_core->textTool()->setSize(64);
+            m_before = paintedPixels();
+            m_core->textTool()->placeText(editor()->view()->mapScreenToCanvas(at(-520, -40)), QStringLiteral("Hello ArtFlow"));
+        };
+        m_steps << [this]() {
+            check(QStringLiteral("Text writes into the drawing"), paintedPixels() > m_before + 800,
+                  QStringLiteral("%1 -> %2 px").arg(m_before).arg(paintedPixels()));
+            const int withText = paintedPixels();
+            m_core->history()->undo();
+            settle();
+            check(QStringLiteral("undo takes the text back"), paintedPixels() < withText - 500,
+                  QStringLiteral("%1 -> %2 px").arg(withText).arg(paintedPixels()));
+            m_core->history()->redo();
+            settle();
+
+            // Symmetry: a stroke on the left of the page shows up on the right.
+            m_core->tools()->activate(ToolIntent::Brush);
+            editor()->color()->setFrontColor(QColor(120, 40, 160));
+            m_core->tools()->setBrushSize(14);
+            if (QToolButton *mirror = m_shell->window()->findChild<QToolButton *>(QStringLiteral("symmetryButton"))) {
+                mirror->setChecked(true);
+            }
+            const QPointF axis = editor()->view()->mapCanvasToScreen(QPointF(m_core->brushes()->symmetryAxis(), 0));
+            m_mirrorLeft = QPointF(axis.x() - 380, at(0, 120).y());
+            pressureStroke(line(m_mirrorLeft, m_mirrorLeft + QPointF(-120, 80), 20), QVector<qreal>(21, 0.8));
+            m_mirrorRight = QPointF(2 * axis.x() - m_mirrorLeft.x(), m_mirrorLeft.y());
+        };
+        m_steps << [this]() {
+            check(QStringLiteral("symmetry mirrors the stroke across the page"),
+                  qAlpha(pixelAt(m_mirrorLeft)) > 150 && qAlpha(pixelAt(m_mirrorRight)) > 150,
+                  QStringLiteral("left alpha %1, mirrored alpha %2").arg(qAlpha(pixelAt(m_mirrorLeft))).arg(qAlpha(pixelAt(m_mirrorRight))));
+            if (QToolButton *mirror = m_shell->window()->findChild<QToolButton *>(QStringLiteral("symmetryButton"))) {
+                mirror->setChecked(false);
+            }
+            screenshot(QStringLiteral("new-tools"));
+            frameImage().save(m_out.absoluteFilePath(QStringLiteral("new-tools-pixels.png")));
+
+            // Adjust: turn the blue rectangle around the colour wheel.
+            m_adjustBefore = pixelAt(at(-410, -210));
+            check(QStringLiteral("Adjust starts on a drawing"), m_core->adjust()->begin());
+            {
+                AdjustPanel panel(m_core, false, m_shell->window());
+                Adjustments shown;
+                shown.hue = 40;
+                shown.saturation = -20;
+                shown.blur = 6;
+                panel.setAdjustments(shown);
+                panel.adjustSize();
+                panel.grab().save(m_out.absoluteFilePath(QStringLiteral("adjust-panel.png")));
+            }
+            Adjustments shift;
+            shift.hue = 180;
+            m_core->adjust()->preview(shift);
+            m_core->adjust()->apply();
+            settle();
+        };
+        m_steps << [this]() {
+            const QRgb after = pixelAt(at(-410, -210));
+            check(QStringLiteral("Adjust turns the colours"), qBlue(m_adjustBefore) > qRed(m_adjustBefore) && qRed(after) > qBlue(after),
+                  QStringLiteral("rgb(%1,%2,%3) -> rgb(%4,%5,%6)").arg(qRed(m_adjustBefore)).arg(qGreen(m_adjustBefore))
+                      .arg(qBlue(m_adjustBefore)).arg(qRed(after)).arg(qGreen(after)).arg(qBlue(after)));
+            m_core->history()->undo();
+            settle();
+            const QRgb undone = pixelAt(at(-410, -210));
+            check(QStringLiteral("undo takes the adjustment back"), qBlue(undone) > qRed(undone),
+                  QStringLiteral("rgb(%1,%2,%3)").arg(qRed(undone)).arg(qGreen(undone)).arg(qBlue(undone)));
+
+            Adjustments blur;
+            blur.blur = 12;
+            const QImage source = frameImage();
+            const QImage blurred = StudioAdjust::adjusted(source, blur);
+            int soft = 0;
+            int softBefore = 0;
+            for (int y = 0; y < blurred.height(); y += 2) {
+                for (int x = 0; x < blurred.width(); x += 2) {
+                    const int a = qAlpha(blurred.pixel(x, y));
+                    const int b = qAlpha(source.pixel(x, y));
+                    if (a > 10 && a < 230) ++soft;
+                    if (b > 10 && b < 230) ++softBefore;
+                }
+            }
+            check(QStringLiteral("blur softens the edges"), soft > softBefore * 2, QStringLiteral("%1 -> %2 soft px").arg(softBefore).arg(soft));
+        };
+
+        // Layers
+        m_steps << [this]() {
+            m_layersBefore = editor()->layers()->count();
+            m_core->layers()->addDrawingLayer();
+            settle();
+            Layer *added = m_core->layers()->activeLayer();
+            m_core->layers()->rename(added, QStringLiteral("Ink"));
+            m_core->layers()->setOpacity(added, 0.5);
+            settle();
+            check(QStringLiteral("a new layer can be renamed and faded"),
+                  added && added->name() == QLatin1String("Ink") && qAbs(added->opacity() - 0.5) < 0.01
+                      && editor()->layers()->count() == m_layersBefore + 1,
+                  added ? added->name() : QStringLiteral("no layer"));
+            const QVector<Layer *> stack = m_core->layers()->layers();
+            m_core->layers()->moveTo(added, stack.size() - 1);
+            settle();
+            const QVector<Layer *> moved = m_core->layers()->layers();
+            check(QStringLiteral("a layer moves down to just above the camera"),
+                  moved.size() >= 2 && moved[moved.size() - 2] == added && moved.last()->type() == Layer::CAMERA,
+                  QStringLiteral("second from the bottom: %1").arg(moved.size() >= 2 ? moved[moved.size() - 2]->name() : QString()));
+            m_core->layers()->moveTo(added, 0);
+            settle();
+            check(QStringLiteral("and back to the top"), m_core->layers()->layers().first() == added);
+            Layer *copy = m_core->layers()->duplicateActiveLayer();
+            settle();
+            check(QStringLiteral("duplicating keeps name and opacity"),
+                  copy && copy != added && copy->name().contains(QLatin1String("Ink")) && qAbs(copy->opacity() - 0.5) < 0.01
+                      && editor()->layers()->count() == m_layersBefore + 2,
+                  copy ? copy->name() : QStringLiteral("no copy"));
+            if (LayerStackPanel *panel = m_shell->window()->findChild<LayerStackPanel *>()) {
+                panel->grab().save(m_out.absoluteFilePath(QStringLiteral("layers-panel.png")));
+            }
+            screenshot(QStringLiteral("layers"));
             m_shell->modes()->switchTo(QStringLiteral("flip"));
         };
-        m_steps << [this]() { screenshot(QStringLiteral("final")); };
+        m_steps << [this]() {
+            QDockWidget *layers = m_shell->window()->findChild<QDockWidget *>(QStringLiteral("ArtFlowLayersDock"));
+            check(QStringLiteral("Flip mode shows the layers too"), layers && layers->isVisible());
+            screenshot(QStringLiteral("final"));
+        };
     }
 
 private:
@@ -722,6 +935,10 @@ private:
     int m_penKeys {0};
     int m_mouseBefore {0};
     int m_sampler {0};
+    int m_layersBefore {0};
+    QRgb m_adjustBefore {0};
+    QPointF m_mirrorLeft;
+    QPointF m_mirrorRight;
     QStringList m_samplerFailures;
     QVariantMap m_brushSettings;
     QString m_penUndoText;

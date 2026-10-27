@@ -30,6 +30,7 @@ public:
         HasKeyframeRole,                   ///< bool, a drawing (or camera key) starts here
         IsHoldRole,                        ///< bool, frame shows an earlier keyframe
         IsCurrentFrameRole,                ///< bool
+        OpacityRole,                       ///< qreal, the layer's opacity
     };
 
     explicit StudioTimelineModel(StudioCore *core, QObject *parent = nullptr);
@@ -62,6 +63,7 @@ private:
         int type {0};
         QString name;
         bool visible {true};
+        qreal opacity {1.0};
         QVector<int> keys;  ///< sorted keyframe frames (1-based)
     };
 

@@ -15,7 +15,10 @@ class Editor;
 class MainWindow2;
 class ScribbleArea;
 
+class ShapeTool;
+class StudioAdjust;
 class StudioBrushes;
+class TextTool;
 class StudioHistory;
 class StudioLayers;
 class StudioPenButtons;
@@ -50,6 +53,9 @@ public:
     StudioPlayback *playback() const;
     StudioPenButtons *penButtons() const;
     StudioBrushes *brushes() const;
+    StudioAdjust *adjust() const;
+    ShapeTool *shapeTool() const;
+    TextTool *textTool() const;
 
     /// Zooms and centres the view so the whole camera frame fits the canvas.
     /// Until the view is zoomed or moved by hand, it fits again whenever the
@@ -75,6 +81,9 @@ private:
     StudioPlayback *m_playback;
     StudioPenButtons *m_penButtons;
     StudioBrushes *m_brushes;
+    StudioAdjust *m_adjust;
+    ShapeTool *m_shapeTool;
+    TextTool *m_textTool;
 
     bool m_fitted {false};
     qreal m_fitScale {0.0};

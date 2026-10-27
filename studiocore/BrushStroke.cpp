@@ -152,6 +152,12 @@ void BrushStroke::finish()
     m_samples.clear();
 }
 
+void BrushStroke::setMirror(bool enabled, qreal axisX)
+{
+    m_mirror = enabled;
+    m_mirrorAxis = axisX;
+}
+
 void BrushStroke::clear()
 {
     m_tiles.clear();
@@ -319,11 +325,23 @@ void BrushStroke::dab(const QPointF &center, qreal pressure, qreal travelled)
             const qreal angle = m_random.generateDouble() * 2.0 * M_PI;
             const qreal reach = radius * m_random.generateDouble();
             const qreal size = dot * (0.6 + 0.8 * m_random.generateDouble());
-            stamp(position + QPointF(qCos(angle), qSin(angle)) * reach, size, alpha, 0.55, 1.0);
+            place(position + QPointF(qCos(angle), qSin(angle)) * reach, size, alpha, 0.55, 1.0);
         }
         return;
     }
-    stamp(position, diameter, alpha, m_preset.hardness, m_preset.roundness);
+    place(position, diameter, alpha, m_preset.hardness, m_preset.roundness);
+}
+
+void BrushStroke::place(const QPointF &center, qreal diameter, qreal alpha, qreal hardness, qreal roundness)
+{
+    stamp(center, diameter, alpha, hardness, roundness);
+    if (!m_mirror) return;
+
+    // The mirror image: the same dab on the other side of the axis, with a
+    // flat nib turned the other way.
+    m_angleCos = -m_angleCos;
+    stamp(QPointF(2.0 * m_mirrorAxis - center.x(), center.y()), diameter, alpha, hardness, roundness);
+    m_angleCos = -m_angleCos;
 }
 
 void BrushStroke::stamp(const QPointF &center, qreal diameter, qreal alpha, qreal hardness, qreal roundness)

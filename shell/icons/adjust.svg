@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-FileCopyrightText: 2026 ArtFlow contributors -->
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="none" stroke="#000000" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M4.5 7h2.5M11 7h8.5M4.5 12h9M17.5 12h2M4.5 17h1M9.5 17h10"/><circle fill="#000000" stroke="none" cx="9" cy="7" r="2.3"/><circle fill="#000000" stroke="none" cx="15.5" cy="12" r="2.3"/><circle fill="#000000" stroke="none" cx="7.5" cy="17" r="2.3"/></svg>

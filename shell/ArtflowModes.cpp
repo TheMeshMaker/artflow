@@ -23,7 +23,8 @@ void registerDefaultModes(ModeManager *manager)
     flip.title = tr("Flip");
     flip.tagline = tr("Frame-by-frame animation: draw a frame, add the next one, flip through them");
     flip.tools = {ToolIntent::Brush, ToolIntent::Pencil, ToolIntent::Eraser, ToolIntent::Fill,
-                  ToolIntent::Picker, ToolIntent::Select};
+                  ToolIntent::LassoFill, ToolIntent::Picker, ToolIntent::Select};
+    flip.showLayerStack = true;
     flip.defaultTool = ToolIntent::Brush;
     flip.engineDocks = {QStringLiteral("ColorWheel"), QStringLiteral("ColorPalette")};
     flip.createTimelinePanel = [](StudioCore *core, StudioTimelineModel *model, QWidget *parent) -> QWidget * {
@@ -38,6 +39,7 @@ void registerDefaultModes(ModeManager *manager)
     motion.tools = {ToolIntent::Camera, ToolIntent::Move, ToolIntent::Select, ToolIntent::Brush, ToolIntent::Eraser};
     motion.defaultTool = ToolIntent::Camera;
     motion.engineDocks = {QStringLiteral("ColorWheel"), QStringLiteral("ColorPalette"), QStringLiteral("ToolOption")};
+    motion.showLayerStack = true;
     motion.createTimelinePanel = [](StudioCore *core, StudioTimelineModel *model, QWidget *parent) -> QWidget * {
         return new TracksPanel(core, model, parent);
     };
@@ -48,7 +50,8 @@ void registerDefaultModes(ModeManager *manager)
     studio.title = tr("Studio");
     studio.tagline = tr("Drawing and painting: layers, brushes and colours");
     studio.tools = {ToolIntent::Brush, ToolIntent::Pencil, ToolIntent::Eraser, ToolIntent::Smudge,
-                    ToolIntent::Fill, ToolIntent::Picker, ToolIntent::Select, ToolIntent::Move, ToolIntent::Shapes};
+                    ToolIntent::Fill, ToolIntent::LassoFill, ToolIntent::Picker, ToolIntent::Select,
+                    ToolIntent::Move, ToolIntent::Shapes, ToolIntent::Text};
     studio.defaultTool = ToolIntent::Brush;
     studio.engineDocks = {QStringLiteral("ColorWheel"), QStringLiteral("ColorPalette"), QStringLiteral("ToolOption")};
     studio.showLayerStack = true;

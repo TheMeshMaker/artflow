@@ -27,10 +27,12 @@ enum class ToolIntent {
     Eraser,
     Smudge,
     Fill,
+    LassoFill,
     Picker,
     Select,
     Move,
     Shapes,
+    Text,
     Camera,
 };
 

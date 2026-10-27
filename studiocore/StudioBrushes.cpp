@@ -9,6 +9,8 @@
 #include <QtMath>
 
 #include "editor.h"
+#include "layercamera.h"
+#include "object.h"
 #include "stroketool.h"
 #include "toolmanager.h"
 
@@ -249,6 +251,26 @@ QImage StudioBrushes::preview(const BrushPreset &preset, const QSize &size, qrea
     return image;
 }
 
+bool StudioBrushes::symmetry() const
+{
+    return m_symmetry;
+}
+
+void StudioBrushes::setSymmetry(bool on)
+{
+    if (on == m_symmetry) return;
+    m_symmetry = on;
+    Q_EMIT symmetryChanged(on);
+}
+
+qreal StudioBrushes::symmetryAxis() const
+{
+    const Object *object = m_core->editor()->object();
+    if (!object) return 0.0;
+    const std::vector<LayerCamera *> cameras = object->getLayersByType<LayerCamera>();
+    return cameras.empty() ? 0.0 : QRectF(cameras.front()->getViewRect()).center().x();
+}
+
 bool StudioBrushes::handles(ToolType tool) const
 {
     return tool == BRUSH || tool == PENCIL || tool == ERASER;
@@ -258,6 +280,7 @@ QVector<BitmapBrushEngine::Patch> StudioBrushes::beginStroke(const StrokeStart &
                                                              qreal pressure)
 {
     const bool erasing = start.tool == ERASER;
+    m_stroke.setMirror(m_symmetry, symmetryAxis());
     // The eraser's stroke is a mask the engine cuts out of the layer, so it
     // is drawn fully opaque whatever the colour.
     m_stroke.begin(erasing ? eraserPreset() : current(start.tool), erasing ? QColor(Qt::black) : start.color,

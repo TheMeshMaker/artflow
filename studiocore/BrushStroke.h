@@ -42,6 +42,8 @@ public:
     void finish();
     /// Frees the stroke's memory.
     void clear();
+    /// Every dab is also laid mirrored across the vertical line x = \p axisX.
+    void setMirror(bool enabled, qreal axisX = 0.0);
 
     /// The finished pixels of what changed since the last call.
     QVector<BitmapBrushEngine::Patch> takePatches();
@@ -61,6 +63,8 @@ private:
     void segment(const Sample &p0, const Sample &p1, const Sample &p2, const Sample &p3);
     void walk(const QPointF &from, const QPointF &to, qreal pressureFrom, qreal pressureTo);
     void dab(const QPointF &center, qreal pressure, qreal travelled);
+    /// A stamp, and its mirror image when symmetry is on.
+    void place(const QPointF &center, qreal diameter, qreal alpha, qreal hardness, qreal roundness);
     void stamp(const QPointF &center, qreal diameter, qreal alpha, qreal hardness, qreal roundness);
     float *tileFor(int tileX, int tileY);
     const float *tileAt(int tileX, int tileY) const;
@@ -73,6 +77,8 @@ private:
     bool m_tablet = false;
     qreal m_angleCos = 1.0;
     qreal m_angleSin = 0.0;
+    bool m_mirror = false;
+    qreal m_mirrorAxis = 0.0;
 
     QHash<quint64, QVector<float>> m_tiles;
     QRect m_dirty;

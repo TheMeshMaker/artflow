@@ -21,7 +21,7 @@
 namespace {
 
 /// Bump when the map changes, so existing installs pick it up once.
-const int KeyMapVersion = 1;
+const int KeyMapVersion = 2;
 
 const char ShortcutsGroup[] = "shortcuts";
 
@@ -55,7 +55,6 @@ const QHash<QString, QString> &keyMap()
         {QStringLiteral("CmdToolEyedropper"), QStringLiteral("I")},
         {QStringLiteral("CmdToolSelect"), QStringLiteral("M")},
         {QStringLiteral("CmdToolMove"), QStringLiteral("V")},
-        {QStringLiteral("CmdToolPolyline"), QStringLiteral("U")},
         {QStringLiteral("CmdToolHand"), QStringLiteral("H")},
     };
     return keys;

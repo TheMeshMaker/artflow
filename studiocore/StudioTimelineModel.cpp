@@ -77,6 +77,8 @@ QVariant StudioTimelineModel::data(const QModelIndex &index, int role) const
             && !std::binary_search(row.keys.begin(), row.keys.end(), frame);
     case IsCurrentFrameRole:
         return frame == m_currentFrame;
+    case OpacityRole:
+        return row.opacity;
     default:
         return QVariant();
     }
@@ -123,6 +125,7 @@ void StudioTimelineModel::refresh()
         row.type = layer->type();
         row.name = layer->name();
         row.visible = layer->visible();
+        row.opacity = layer->opacity();
         row.keys = m_core->timeline()->keyframeTimes(layer).toVector();
         m_rows.append(row);
     }

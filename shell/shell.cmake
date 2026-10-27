@@ -8,6 +8,11 @@
 
 set(ARTFLOW_STUDIOCORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/studiocore/BrushStroke.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/studiocore/StudioAdjust.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/studiocore/tools/ArtTool.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/studiocore/tools/LassoFillTool.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/studiocore/tools/ShapeTool.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/studiocore/tools/TextTool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/studiocore/StudioBrushes.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/studiocore/StudioCore.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/studiocore/StudioHistory.cpp
@@ -28,12 +33,14 @@ set(ARTFLOW_SHELL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/BeginnerShortcuts.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/ModeManager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/PenButtonsDialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell/panels/AdjustPanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/panels/BrushLibrary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/panels/BrushSlidersPanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/panels/FrameStripPanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/panels/LayerStackPanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/panels/ShellControls.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/panels/ShellWidgets.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell/panels/SymmetryGuide.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/panels/TracksPanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/artflow.qrc
 )
@@ -60,6 +67,7 @@ target_include_directories(artflow_objects PUBLIC
     ${CORE_LIB_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/ui
     ${CMAKE_CURRENT_SOURCE_DIR}/studiocore
+    ${CMAKE_CURRENT_SOURCE_DIR}/studiocore/tools
     ${CMAKE_CURRENT_SOURCE_DIR}/shell
 )
 

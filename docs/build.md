@@ -75,7 +75,10 @@ The one launch of stock `pencil2d.exe` during set-up created
 | `core_lib/src/tool/stroketool.h/.cpp`, `brushtool.cpp`, `penciltool.cpp`, `erasertool.cpp` | hand the stroke to the installed brush engine and lay its patches into the stroke buffer |
 | `core_lib/src/interface/scribblearea.h/.cpp` | `ScribbleArea::drawStrokePatch()`: lays a rendered piece of a stroke into the stroke buffer |
 | `core_lib/src/graphics/bitmap/tiledbuffer.cpp` | `drawImage()` touches only the tiles the image covers (it allocated a margin of a whole image on each side) |
-| `core_lib/src/canvaspainter.h/.cpp` | `CanvasPainter::setSmoothScaling()`: bitmap layers scale smoothly below 400 % zoom (default off) |
+| `core_lib/src/canvaspainter.h/.cpp` | `CanvasPainter::setSmoothScaling()`: bitmap layers scale smoothly below 400 % zoom (default off); each layer is drawn at its opacity |
+| `core_lib/src/util/pencildef.h`, `tool/basetool.cpp`, `app/src/statusbar.cpp` | tool types `SHAPES`, `LASSOFILL`, `TEXT` for tools a program adds, with their names and status-bar hints |
+| `core_lib/src/managers/toolmanager.h/.cpp` | `ToolManager::addTool()`: adds and owns a tool that is not part of the core |
+| `core_lib/src/structure/layer.h/.cpp`, `object.cpp` | layer opacity: saved as an `opacity` attribute (only when below 1, so files stay readable by Pencil2D), used on the canvas and in exports |
 
 Everything else under `core_lib/` and `app/` is untouched; ArtFlow's code
 is in `studiocore/` and `shell/`.

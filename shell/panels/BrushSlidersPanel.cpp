@@ -92,7 +92,8 @@ BrushSlidersPanel::BrushSlidersPanel(StudioCore *core, QWidget *parent)
 void BrushSlidersPanel::slotStyleChanged()
 {
     const ToolIntent intent = m_core->tools()->currentIntent();
-    const bool styled = intent == ToolIntent::Brush || intent == ToolIntent::Pencil;
+    // Shapes are outlined with the brush's style.
+    const bool styled = intent == ToolIntent::Brush || intent == ToolIntent::Pencil || intent == ToolIntent::Shapes;
     m_style->setEnabled(styled);
     if (!styled) {
         m_style->setIcon(QIcon());

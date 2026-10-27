@@ -26,6 +26,17 @@
         <file>icons/layer-vector.svg</file>
         <file>icons/layers.svg</file>
         <file>icons/lines.svg</file>
+        <file>icons/layer-duplicate.svg</file>
+        <file>icons/shapes.svg</file>
+        <file>icons/shape-line.svg</file>
+        <file>icons/shape-rect.svg</file>
+        <file>icons/shape-ellipse.svg</file>
+        <file>icons/shape-fill.svg</file>
+        <file>icons/lasso.svg</file>
+        <file>icons/text.svg</file>
+        <file>icons/symmetry.svg</file>
+        <file>icons/adjust.svg</file>
+        <file>icons/bold.svg</file>
         <file>icons/menu.svg</file>
         <file>icons/move.svg</file>
         <file>icons/next.svg</file>

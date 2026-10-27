@@ -46,10 +46,12 @@ QVector<ToolIntentInfo> StudioTools::allIntents()
         {ToolIntent::Eraser, QStringLiteral("eraser"), tr("Eraser"), QStringLiteral("E"), toolIcon("eraser"), ERASER},
         {ToolIntent::Smudge, QStringLiteral("smudge"), tr("Smudge"), QStringLiteral("S"), toolIcon("smudge"), SMUDGE},
         {ToolIntent::Fill, QStringLiteral("fill"), tr("Fill"), QStringLiteral("G"), toolIcon("fill"), BUCKET},
+        {ToolIntent::LassoFill, QStringLiteral("lasso"), tr("Lasso Fill"), QStringLiteral("L"), toolIcon("lasso"), LASSOFILL},
         {ToolIntent::Picker, QStringLiteral("picker"), tr("Picker"), QStringLiteral("I"), toolIcon("picker"), EYEDROPPER},
         {ToolIntent::Select, QStringLiteral("select"), tr("Select"), QStringLiteral("M"), toolIcon("select"), SELECT},
         {ToolIntent::Move, QStringLiteral("move"), tr("Move"), QStringLiteral("V"), toolIcon("move"), MOVE},
-        {ToolIntent::Shapes, QStringLiteral("shapes"), tr("Lines"), QStringLiteral("U"), toolIcon("lines"), POLYLINE},
+        {ToolIntent::Shapes, QStringLiteral("shapes"), tr("Shapes"), QStringLiteral("U"), toolIcon("shapes"), SHAPES},
+        {ToolIntent::Text, QStringLiteral("text"), tr("Text"), QStringLiteral("T"), toolIcon("text"), TEXT},
         {ToolIntent::Camera, QStringLiteral("camera"), tr("Camera"), QStringLiteral("C"), toolIcon("camera"), CAMERA},
     };
 }
@@ -89,7 +91,10 @@ void StudioTools::toggleEraser()
 
 StrokeTool *StudioTools::strokeTool() const
 {
-    return qobject_cast<StrokeTool *>(m_core->editor()->tools()->currentTool());
+    BaseTool *tool = m_core->editor()->tools()->currentTool();
+    // Shapes are outlined with the brush, at the brush's size.
+    if (tool && tool->type() == SHAPES) tool = m_core->editor()->tools()->getTool(BRUSH);
+    return qobject_cast<StrokeTool *>(tool);
 }
 
 qreal StudioTools::brushSize() const

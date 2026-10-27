@@ -165,14 +165,52 @@ Three causes, three fixes:
   Feather and anti-aliasing switches are hidden for these tools, since
   the styles shape their own edges.
 
+## Tools, adjustments and layers
+
+The user asked for more tools, then for a layers system. ArtFlow's own
+tools live in `studiocore/tools/` and join the engine's through
+`ToolManager::addTool()`; `ArtTool` gives them a live preview in the
+stroke buffer and one undo step per change, like the brushes.
+
+* **Shapes** (U): line, rectangle, ellipse, with or without a fill. Shift
+  makes a square, a circle or a 45-degree line; Alt draws from the centre.
+  The outline is drawn with the Brush tool's style and size, so a pencil
+  box or an ink circle is one drag.
+* **Lasso Fill** (L): draw around an area and it fills with the colour,
+  self-crossing loops included (winding fill).
+* **Text** (T): click, type, Enter (Shift+Enter for a new line, Escape to
+  drop it). Five lettering styles, size in canvas pixels, bold. The text
+  is drawn into the drawing, so it animates and erases like anything else.
+* **Symmetry** (top bar): brush, pencil and eraser strokes are mirrored
+  across the vertical centre line of the page, flat nibs and spray too; a
+  dashed guide shows the line.
+* **Adjust** (top bar): hue, saturation, brightness, contrast, blur,
+  invert, black & white, on the current drawing or only its selected part,
+  previewed live, one undo step on Apply (`StudioAdjust`, `AdjustPanel`).
+  The blur has room to spread past the drawing's edge.
+* **Options bar:** the chosen tool's options sit right after the tools
+  (shape kind and fill; lettering, size, bold) and follow changes made
+  elsewhere without being rebuilt.
+* **Layers in every mode:** a thumbnail of each layer's drawing on the
+  current frame, visibility, double-click to rename, drag to reorder (the
+  camera layer stays at the bottom, an engine rule), duplicate, delete, and
+  an opacity slider for the chosen layer. Layer opacity is a small core
+  addition, saved in the file.
+* **Window layout:** the engine's saved arrangement of bars and panels is
+  no longer restored (only the window's size and place); the shell
+  arranges them itself, and an arrangement saved by an older ArtFlow made
+  the window's layout break and crash as it first showed.
+* Custom controls stay custom: `ValueSlider` (name, value and a flat track
+  that fills from zero) for Adjust and layer opacity.
+
 ## Krita-lite request vs this base
 
 | Requested | Status |
 |---|---|
 | ~10 tools | 10 intents: brush, pencil, eraser, smudge, fill, picker, select, move, lines, camera |
-| Lasso, shapes, text | not in the engine; Phase 2 |
-| Layers: paint, vector, group; blend modes; clipping | bitmap, vector, camera, sound layers; no groups, blend modes or clipping yet |
-| A few filters | none in the engine; Phase 2 |
+| Lasso, shapes, text | Lasso Fill, Shapes (line, rectangle, ellipse, fill), Text; a lasso *selection* is still Phase 2 |
+| Layers: paint, vector, group; blend modes; clipping | bitmap, vector, camera, sound layers with thumbnails, rename, reorder, duplicate, opacity; no groups, blend modes, clipping or merge yet |
+| A few filters | Adjust: hue, saturation, brightness, contrast, blur, invert, black & white |
 | Simple brush editor | ArtFlow's size/opacity sliders plus the engine panel (width, stabilizer, pressure) |
 | Curated 20–30 brushes | 16 styles in ArtFlow's own brush engine, with a picker that shows a sample stroke of each |
 | Beginner shortcuts with tooltips and a cheat sheet | done |
@@ -182,7 +220,7 @@ Three causes, three fixes:
 
 ## Self-test
 
-51 of 51 checks pass (`H:\afdev\selftest\brush-run5\report.txt`): window
+68 of 68 checks pass (`H:\afdev\selftest\tools-run10\report.txt`): window
 title, brush with pressure 0.7 and tilt, eraser, fill + undo, selection, mode round
 trip, Motion's camera tool, new/duplicate/delete frame, every pen-button
 check (undo, redo, bounce, no stroke, no menu, eraser events blocked), the
@@ -192,7 +230,12 @@ every tool), and the brushes: 1920 x 1080 pages that fit the window,
 every style painting a pressure stroke (`brush-sampler.png`), smooth ink
 edges, a marker that does not darken over itself, an airbrush that
 builds up, a sample stroke for every style, and both pickers opening
-(`brush-library.png`, `pencil-library.png`). The test keeps the person's
+(`brush-library.png`, `pencil-library.png`), then the new tools: a filled
+rectangle, an outline-only ellipse, a 45-degree line with Shift, Lasso
+Fill, Text with undo, symmetry, Adjust with undo, blur, and layers
+(rename, opacity, move down to the camera and back, duplicate, layers in
+Flip mode); `new-tools.png`, `layers-panel.png`, `adjust-panel.png` and
+`shapes-bar.png` show them. The test keeps the person's
 brush settings and puts them back at the end. The self-test maximizes the window and waits until its size
 stops changing before the first stroke, and saves screenshots of every
 mode next to the report.
@@ -200,12 +243,12 @@ mode next to the report.
 ## Phase 2
 
 1. Real-pen test with the ASUS Pen 2.0, then tune the debounce and defaults.
-2. Lasso and shape tools, a text tool, a few filters (blur, hue/saturation,
-   brightness/contrast), layer blend modes, opacity and clipping.
+2. Lasso selection, layer blend modes, clipping, merge down and groups;
+   GIF/MP4 export needs an ffmpeg next to the program.
 3. Motion: per-layer transform/opacity keys with easing (today only the
    camera layer animates), plus a keyframe gizmo on the canvas.
 4. Flip: frame thumbnails, insert-and-slide editing, per-layer onion skin.
 5. Touch gestures (pinch zoom/rotate, two/three-finger taps).
 6. Branding pass: About dialog and engine dialog strings, translations,
    icon, installer.
-7. Curated brush presets and a simple brush editor.
+7. A simple brush editor on top of the 16 styles.

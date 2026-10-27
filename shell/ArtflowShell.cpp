@@ -7,6 +7,10 @@
 
 #include <QAbstractSpinBox>
 #include <QAction>
+#include <QComboBox>
+#include <QSignalBlocker>
+#include <QSpinBox>
+#include <QToolTip>
 #include <QButtonGroup>
 #include <QDockWidget>
 #include <QHBoxLayout>
@@ -31,12 +35,18 @@
 #include "editor.h"
 #include "layer.h"
 #include "layermanager.h"
+#include "scribblearea.h"
+#include "selectionmanager.h"
 #include "toolmanager.h"
 #include "mainwindow2.h"
 #include "pencildef.h"
 
+#include "StudioAdjust.h"
+#include "StudioBrushes.h"
 #include "StudioCore.h"
 #include "StudioHistory.h"
+#include "tools/ShapeTool.h"
+#include "tools/TextTool.h"
 #include "StudioTimelineModel.h"
 #include "StudioTools.h"
 
@@ -45,11 +55,13 @@
 #include "BeginnerShortcuts.h"
 #include "ModeManager.h"
 #include "PenButtonsDialog.h"
+#include "panels/AdjustPanel.h"
 #include "panels/BrushLibrary.h"
 #include "panels/BrushSlidersPanel.h"
 #include "panels/LayerStackPanel.h"
 #include "panels/ShellControls.h"
 #include "panels/ShellWidgets.h"
+#include "panels/SymmetryGuide.h"
 
 namespace {
 
@@ -147,6 +159,7 @@ ArtflowShell::ArtflowShell(MainWindow2 *window, QObject *parent)
 
     // The engine names the window after itself; keep ArtFlow's name.
     connect(window, &QWidget::windowTitleChanged, this, &ArtflowShell::fixWindowTitle);
+    window->installEventFilter(this);
 
     // The engine shows its option rows again for every tool and layer change.
     connect(m_core->editor()->layers(), &LayerManager::currentLayerChanged, this, [this]() {
@@ -156,6 +169,14 @@ ArtflowShell::ArtflowShell(MainWindow2 *window, QObject *parent)
 
 ArtflowShell::~ArtflowShell()
 {
+}
+
+bool ArtflowShell::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_window && event->type() == QEvent::Show) {
+        QTimer::singleShot(0, this, &ArtflowShell::applyChrome);
+    }
+    return QObject::eventFilter(watched, event);
 }
 
 StudioCore *ArtflowShell::core() const
@@ -197,6 +218,7 @@ void ArtflowShell::start(const QString &modeId)
     CameraPainter::setOutsideShade(surround);
     // Drawings scale smoothly instead of in square pixels.
     CanvasPainter::setSmoothScaling(true);
+    if (QWidget *canvas = m_core->canvas()) new SymmetryGuide(m_core, canvas);
     if (BackgroundWidget *background = m_window->findChild<BackgroundWidget *>()) {
         background->setStyleSheet(QStringLiteral("BackgroundWidget { background-color: white; border: none; }"));
     }
@@ -262,9 +284,34 @@ void ArtflowShell::buildTopBar()
     m_toolButtons->setExclusive(true);
     m_topBar->addWidget(m_toolStrip);
 
+    // The chosen tool's own options (shape, font...) sit right after the tools.
+    m_contextBar = new QWidget(m_topBar);
+    m_contextLayout = new QHBoxLayout(m_contextBar);
+    m_contextLayout->setContentsMargins(14, 0, 0, 0);
+    m_contextLayout->setSpacing(4);
+    m_contextAction = m_topBar->addWidget(m_contextBar);
+    // Options can change from elsewhere too; the bar follows without being
+    // rebuilt, so the letter size box keeps its focus while typing.
+    connect(m_core->shapeTool(), &ShapeTool::optionsChanged, this, &ArtflowShell::syncContextBar);
+    connect(m_core->textTool(), &TextTool::optionsChanged, this, &ArtflowShell::syncContextBar);
+
     QWidget *spacer = new QWidget(m_topBar);
     spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     m_topBar->addWidget(spacer);
+
+    m_symmetry = iconButton(QStringLiteral("symmetry"),
+                            tr("Symmetry: what you draw on one side of the page appears mirrored on the other"));
+    m_symmetry->setObjectName(QStringLiteral("symmetryButton"));
+    m_symmetry->setCheckable(true);
+    connect(m_symmetry, &QToolButton::toggled, m_core->brushes(), &StudioBrushes::setSymmetry);
+    m_topBar->addWidget(m_symmetry);
+
+    m_adjustButton = iconButton(QStringLiteral("adjust"), tr("Adjust colours and blur of this drawing"));
+    m_adjustButton->setObjectName(QStringLiteral("adjustButton"));
+    connect(m_adjustButton, &QToolButton::clicked, this, &ArtflowShell::showAdjustPanel);
+    m_topBar->addWidget(m_adjustButton);
+
+    m_topBar->addSeparator();
 
     m_undo = iconButton(QStringLiteral("undo"), QString());
     connect(m_undo, &QToolButton::clicked, m_core->history(), &StudioHistory::undo);
@@ -335,6 +382,15 @@ void ArtflowShell::buildActions()
         const ModeDescriptor *mode = m_modes->currentMode();
         if (mode && mode->tools.contains(ToolIntent::Camera)) m_core->tools()->activate(ToolIntent::Camera);
     });
+    // ArtFlow's own tools have no engine command to carry their keys.
+    for (const auto &key : QList<QPair<ToolIntent, Qt::Key>>{
+             {ToolIntent::Shapes, Qt::Key_U}, {ToolIntent::LassoFill, Qt::Key_L}, {ToolIntent::Text, Qt::Key_T}}) {
+        const ToolIntent intent = key.first;
+        addAction(StudioTools::info(intent).label, {QKeySequence(key.second)}, [this, intent]() {
+            const ModeDescriptor *mode = m_modes->currentMode();
+            if (mode && mode->tools.contains(intent)) m_core->tools()->activate(intent);
+        });
+    }
     addAction(tr("Smaller brush"), {QKeySequence(Qt::Key_BracketLeft)}, [this]() {
         m_core->tools()->setBrushSize(m_core->tools()->brushSize() / 1.25);
     });
@@ -359,7 +415,7 @@ void ArtflowShell::rebuildToolStrip()
     for (ToolIntent intent : mode->tools) {
         const ToolIntentInfo info = StudioTools::info(intent);
 
-        const bool styled = intent == ToolIntent::Brush || intent == ToolIntent::Pencil;
+        const bool styled = intent == ToolIntent::Brush || intent == ToolIntent::Pencil || intent == ToolIntent::Shapes;
         QToolButton *button = new QToolButton(m_toolStrip);
         button->setObjectName(QStringLiteral("toolTile"));
         button->setIcon(ArtflowIcons::icon(info.icon));
@@ -428,6 +484,7 @@ void ArtflowShell::slotIntentChanged(ToolIntent intent)
 
     // Each tool shows other options; refit once the engine has swapped them.
     QTimer::singleShot(0, this, &ArtflowShell::fitToolOptions);
+    rebuildContextBar();
 
     for (QAbstractButton *button : m_toolButtons->buttons()) {
         if (button->property("artflowIntent").toInt() == int(intent)) {
@@ -538,6 +595,9 @@ void ArtflowShell::arrangeRightColumn(int width)
     }
     fitToolOptions();
 
+    // Sizes only mean something once the window has its real size; it
+    // arranges the column again when it first shows.
+    if (!m_window->isVisible()) return;
     m_window->resizeDocks(column, QList<int>(column.size(), width), Qt::Horizontal);
     resizeRightColumn();
 }
@@ -548,7 +608,7 @@ void ArtflowShell::resizeRightColumn()
     // whole column is laid out again. Asking for more than fits would shrink
     // every section in proportion, so the swatches ask for a little and grow
     // into whatever is left.
-    if (!m_window) return;
+    if (!m_window || !m_window->isVisible()) return;
     const QList<QDockWidget *> column = rightColumn();
     QList<int> heights;
     for (QDockWidget *dock : column) {
@@ -561,12 +621,125 @@ void ArtflowShell::resizeRightColumn()
 void ArtflowShell::showBrushLibrary(QWidget *anchor, bool below)
 {
     const ToolIntent intent = m_core->tools()->currentIntent();
-    if (intent != ToolIntent::Brush && intent != ToolIntent::Pencil) return;
+    if (intent != ToolIntent::Brush && intent != ToolIntent::Pencil && intent != ToolIntent::Shapes) return;
 
     if (!m_brushLibrary) m_brushLibrary = new BrushLibrary(m_core, m_window);
     const QPoint pos = below ? anchor->mapToGlobal(QPoint(0, anchor->height() + 8))
                              : anchor->mapToGlobal(QPoint(anchor->width() + 10, 0));
     m_brushLibrary->popup(intent == ToolIntent::Pencil ? PENCIL : BRUSH, pos);
+}
+
+void ArtflowShell::rebuildContextBar()
+{
+    if (!m_contextLayout) return;
+    while (QLayoutItem *item = m_contextLayout->takeAt(0)) {
+        delete item->widget();
+        delete item;
+    }
+
+    auto option = [this](const QString &icon, const QString &tip, bool checked) {
+        QToolButton *button = new QToolButton(m_contextBar);
+        button->setObjectName(QStringLiteral("optionTile"));
+        button->setIcon(ArtflowIcons::icon(icon));
+        button->setIconSize(QSize(20, 20));
+        button->setToolTip(tip);
+        button->setCheckable(true);
+        button->setChecked(checked);
+        button->setCursor(Qt::PointingHandCursor);
+        m_contextLayout->addWidget(button);
+        return button;
+    };
+
+    const ToolIntent intent = m_core->tools()->currentIntent();
+    if (intent == ToolIntent::Shapes) {
+        ShapeTool *shapes = m_core->shapeTool();
+        QButtonGroup *group = new QButtonGroup(m_contextBar);
+        const QList<QPair<ShapeTool::Shape, QPair<const char *, QString>>> kinds = {
+            {ShapeTool::Line, {"shape-line", tr("Line  (Shift: straight at 45 degrees)")}},
+            {ShapeTool::Rectangle, {"shape-rect", tr("Rectangle  (Shift: square, Alt: from the centre)")}},
+            {ShapeTool::Ellipse, {"shape-ellipse", tr("Ellipse  (Shift: circle, Alt: from the centre)")}},
+        };
+        for (const auto &kind : kinds) {
+            QToolButton *button = option(QLatin1String(kind.second.first), kind.second.second, shapes->shape() == kind.first);
+            button->setProperty("artflowShape", int(kind.first));
+            group->addButton(button);
+            const ShapeTool::Shape shape = kind.first;
+            connect(button, &QToolButton::clicked, shapes, [shapes, shape]() { shapes->setShape(shape); });
+        }
+        m_contextLayout->addSpacing(6);
+        QToolButton *fill = option(QStringLiteral("shape-fill"), tr("Fill the inside with the colour"), shapes->filled());
+        fill->setProperty("artflowShapeFill", true);
+        connect(fill, &QToolButton::toggled, shapes, &ShapeTool::setFilled);
+    } else if (intent == ToolIntent::Text) {
+        TextTool *text = m_core->textTool();
+        QComboBox *style = new QComboBox(m_contextBar);
+        style->addItems(TextTool::styleNames());
+        style->setCurrentIndex(text->fontStyle());
+        style->setToolTip(tr("Lettering style"));
+        connect(style, qOverload<int>(&QComboBox::currentIndexChanged), text, &TextTool::setFontStyle);
+        m_contextLayout->addWidget(style);
+
+        QSpinBox *size = new QSpinBox(m_contextBar);
+        size->setRange(6, 600);
+        size->setValue(text->size());
+        size->setSuffix(tr(" px"));
+        size->setToolTip(tr("Letter size"));
+        size->setFixedWidth(78);
+        connect(size, qOverload<int>(&QSpinBox::valueChanged), text, &TextTool::setSize);
+        m_contextLayout->addWidget(size);
+
+        QToolButton *bold = option(QStringLiteral("bold"), tr("Bold"), text->bold());
+        bold->setProperty("artflowBold", true);
+        connect(bold, &QToolButton::toggled, text, &TextTool::setBold);
+    }
+    // A widget in a tool bar is shown and hidden through its action.
+    m_contextAction->setVisible(m_contextLayout->count() > 0);
+}
+
+void ArtflowShell::syncContextBar()
+{
+    if (!m_contextBar) return;
+    ShapeTool *shapes = m_core->shapeTool();
+    TextTool *text = m_core->textTool();
+    for (QToolButton *button : m_contextBar->findChildren<QToolButton *>()) {
+        const QSignalBlocker blocker(button);
+        if (button->property("artflowShape").isValid()) button->setChecked(button->property("artflowShape").toInt() == int(shapes->shape()));
+        if (button->property("artflowShapeFill").toBool()) button->setChecked(shapes->filled());
+        if (button->property("artflowBold").toBool()) button->setChecked(text->bold());
+    }
+    if (QComboBox *style = m_contextBar->findChild<QComboBox *>()) {
+        const QSignalBlocker blocker(style);
+        style->setCurrentIndex(text->fontStyle());
+    }
+    if (QSpinBox *size = m_contextBar->findChild<QSpinBox *>()) {
+        if (size->value() != text->size()) {
+            const QSignalBlocker blocker(size);
+            size->setValue(text->size());
+        }
+    }
+}
+
+void ArtflowShell::showAdjustPanel()
+{
+    StudioAdjust *adjust = m_core->adjust();
+    if (!adjust->begin()) {
+        QToolTip::showText(m_adjustButton->mapToGlobal(QPoint(0, m_adjustButton->height() + 4)),
+                           tr("Draw something on this frame first; Adjust works on drawing layers."), m_adjustButton);
+        return;
+    }
+
+    AdjustPanel panel(m_core, m_core->editor()->select()->somethingSelected(), m_window);
+    panel.adjustSize();
+    QPoint pos = m_adjustButton->mapToGlobal(QPoint(m_adjustButton->width(), m_adjustButton->height() + 6));
+    pos.rx() -= panel.width() - 14;
+    pos.ry() -= 14;
+    panel.move(pos);
+    if (panel.exec() == QDialog::Accepted) {
+        adjust->preview(panel.adjustments());
+        adjust->apply();
+    } else {
+        adjust->cancel();
+    }
 }
 
 void ArtflowShell::fitToolOptions()

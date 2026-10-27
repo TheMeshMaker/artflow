@@ -14,8 +14,14 @@
 #include "mainwindow2.h"
 #include "object.h"
 #include "scribblearea.h"
+#include "toolmanager.h"
 #include "viewmanager.h"
 
+#include "tools/LassoFillTool.h"
+#include "tools/ShapeTool.h"
+#include "tools/TextTool.h"
+
+#include "StudioAdjust.h"
 #include "StudioBrushes.h"
 #include "StudioHistory.h"
 #include "StudioLayers.h"
@@ -41,6 +47,14 @@ StudioCore::StudioCore(MainWindow2 *window, QObject *parent)
     m_playback = new StudioPlayback(this);
     m_penButtons = new StudioPenButtons(this);
     m_brushes = new StudioBrushes(this);
+    m_adjust = new StudioAdjust(this);
+
+    // ArtFlow's own tools join the engine's.
+    m_shapeTool = new ShapeTool(m_brushes);
+    m_textTool = new TextTool();
+    m_editor->tools()->addTool(SHAPES, m_shapeTool);
+    m_editor->tools()->addTool(LASSOFILL, new LassoFillTool());
+    m_editor->tools()->addTool(TEXT, m_textTool);
 
     connect(m_editor, &Editor::objectLoaded, this, &StudioCore::documentChanged);
     connect(m_editor, &Editor::objectLoaded, this, &StudioCore::fitView);
@@ -80,6 +94,21 @@ ScribbleArea *StudioCore::canvas() const
 StudioBrushes *StudioCore::brushes() const
 {
     return m_brushes;
+}
+
+StudioAdjust *StudioCore::adjust() const
+{
+    return m_adjust;
+}
+
+ShapeTool *StudioCore::shapeTool() const
+{
+    return m_shapeTool;
+}
+
+TextTool *StudioCore::textTool() const
+{
+    return m_textTool;
 }
 
 void StudioCore::fitView()

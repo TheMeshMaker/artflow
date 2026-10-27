@@ -83,8 +83,10 @@ QPixmap FrameCells::thumbnail(int frame)
     auto it = m_thumbnails.constFind(frame);
     if (it != m_thumbnails.constEnd()) return *it;
 
+    Layer *layer = m_model->layerAt(m_model->activeRow());
+    if (!m_core->layers()->contains(layer)) return QPixmap();
     const qreal dpr = devicePixelRatioF();
-    const QImage image = m_core->timeline()->thumbnail(m_model->layerAt(m_model->activeRow()), frame,
+    const QImage image = m_core->timeline()->thumbnail(layer, frame,
                                                        QSize(TileWidth, TileHeight) * dpr);
     QPixmap pixmap = QPixmap::fromImage(image);
     pixmap.setDevicePixelRatio(dpr);

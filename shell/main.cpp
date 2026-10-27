@@ -52,6 +52,12 @@ int main(int argc, char *argv[])
     // window reads its shortcuts.
     BeginnerShortcuts::writeKeyMap();
 
+    // The shell arranges the bars and panels itself, in every mode. The
+    // engine's saved arrangement only fights it, and one saved by another
+    // ArtFlow version can break the window's layout as it first shows, so
+    // only the window's size and place are kept.
+    QSettings(PENCIL2D, PENCIL2D).remove(QStringLiteral("WindowState"));
+
     {
         // ArtFlow's own defaults, applied once per version so a later change
         // in the preferences sticks.
