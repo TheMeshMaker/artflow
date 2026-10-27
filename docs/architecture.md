@@ -220,7 +220,7 @@ stroke buffer and one undo step per change, like the brushes.
 
 ## Self-test
 
-68 of 68 checks pass (`H:\afdev\selftest\tools-run10\report.txt`): window
+71 of 71 checks pass (`H:\afdev\selftest\export-run1\report.txt`): window
 title, brush with pressure 0.7 and tilt, eraser, fill + undo, selection, mode round
 trip, Motion's camera tool, new/duplicate/delete frame, every pen-button
 check (undo, redo, bounce, no stroke, no menu, eraser events blocked), the
@@ -235,7 +235,8 @@ rectangle, an outline-only ellipse, a 45-degree line with Shift, Lasso
 Fill, Text with undo, symmetry, Adjust with undo, blur, and layers
 (rename, opacity, move down to the camera and back, duplicate, layers in
 Flip mode); `new-tools.png`, `layers-panel.png`, `adjust-panel.png` and
-`shapes-bar.png` show them. The test keeps the person's
+`shapes-bar.png` show them. With ffmpeg bundled, a GIF and an MP4 are
+exported and ffmpeg reads the MP4 back as H.264. The test keeps the person's
 brush settings and puts them back at the end. The self-test maximizes the window and waits until its size
 stops changing before the first stroke, and saves screenshots of every
 mode next to the report.
@@ -243,8 +244,7 @@ mode next to the report.
 ## Phase 2
 
 1. Real-pen test with the ASUS Pen 2.0, then tune the debounce and defaults.
-2. Lasso selection, layer blend modes, clipping, merge down and groups;
-   GIF/MP4 export needs an ffmpeg next to the program.
+2. Lasso selection, layer blend modes, clipping, merge down and groups.
 3. Motion: per-layer transform/opacity keys with easing (today only the
    camera layer animates), plus a keyframe gizmo on the canvas.
 4. Flip: frame thumbnails, insert-and-slide editing, per-layer onion skin.
