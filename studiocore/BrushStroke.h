@@ -44,6 +44,8 @@ public:
     void clear();
     /// Every dab is also laid mirrored across the vertical line x = \p axisX.
     void setMirror(bool enabled, qreal axisX = 0.0);
+    /// Paints only inside \p rect (canvas pixels); an empty rect paints anywhere.
+    void setClip(const QRect &rect);
 
     /// The finished pixels of what changed since the last call.
     QVector<BitmapBrushEngine::Patch> takePatches();
@@ -77,6 +79,7 @@ private:
     bool m_tablet = false;
     qreal m_angleCos = 1.0;
     qreal m_angleSin = 0.0;
+    QRect m_clip;
     bool m_mirror = false;
     qreal m_mirrorAxis = 0.0;
 

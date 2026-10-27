@@ -44,6 +44,11 @@ public:
     /// camera layer at the very bottom stays there).
     void moveTo(Layer *layer, int row);
 
+    /// A new drawing layer named after the picture, holding \p path on the
+    /// current frame, fitted inside the page and selected so it can be
+    /// moved and resized. Returns the layer, or nothing if it did not load.
+    Layer *importImage(const QString &path);
+
     qreal opacity(Layer *layer) const;
     void setOpacity(Layer *layer, qreal opacity);
 

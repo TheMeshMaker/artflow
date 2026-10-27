@@ -10,6 +10,8 @@
 
 #include <QApplication>
 #include <QIcon>
+#include <QProcess>
+#include <QScreen>
 #include <QSettings>
 
 #include "log.h"
@@ -21,6 +23,7 @@
 #include "ArtflowTheme.h"
 #include "ArtflowShell.h"
 #include "BeginnerShortcuts.h"
+#include "panels/LookDialog.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -37,7 +40,31 @@ int main(int argc, char *argv[])
 #endif
     initCategoryLogging();
 
+    // The interface size (Look and layout) has to be set before Qt starts.
+    const bool testing = qEnvironmentVariableIsSet("ARTFLOW_SELFTEST");
+    QString size = LookDialog::uiSize();
+    if (size == QLatin1String("auto")) {
+        size = QSettings(PENCIL2D, PENCIL2D).value(QStringLiteral("ArtFlowLook/autoSize")).toString();
+    }
+    if (!testing && !qEnvironmentVariableIsSet("QT_SCALE_FACTOR") && !size.isEmpty() && size != QLatin1String("auto")) {
+        qputenv("QT_SCALE_FACTOR", QByteArray::number(LookDialog::scaleFor(size)));
+    }
+
     QApplication app(argc, argv);
+
+    // "Fit my screen", the first time: a small screen (such as a 13-inch
+    // laptop at 200 %) gets the compact interface, starting over once.
+    if (!testing && LookDialog::uiSize() == QLatin1String("auto")
+        && !QSettings(PENCIL2D, PENCIL2D).contains(QStringLiteral("ArtFlowLook/autoSize"))) {
+        const QSize screen = QGuiApplication::primaryScreen() ? QGuiApplication::primaryScreen()->availableSize() : QSize();
+        const bool small = screen.isValid() && (screen.width() < 1600 || screen.height() < 960);
+        QSettings(PENCIL2D, PENCIL2D).setValue(QStringLiteral("ArtFlowLook/autoSize"), small ? "compact" : "normal");
+        if (small) {
+            qputenv("QT_SCALE_FACTOR", QByteArray::number(LookDialog::scaleFor(QStringLiteral("compact"))));
+            QProcess::startDetached(QApplication::applicationFilePath(), QApplication::arguments().mid(1));
+            return 0;
+        }
+    }
     // Settings, autosaves and the window layout are ArtFlow's own: the core's
     // QSettings(PENCIL2D, PENCIL2D) calls resolve to "ArtFlow" in this build.
     QApplication::setOrganizationName(QStringLiteral("ArtFlow"));
@@ -104,6 +131,8 @@ int main(int argc, char *argv[])
 
     const QStringList args = QApplication::arguments();
     window.openStartupFile(args.size() > 1 ? args.at(1) : QString());
+    // The start screen, unless a file was opened directly.
+    if (args.size() <= 1 && !testing) shell.showHome();
 
     if (qEnvironmentVariableIsSet("ARTFLOW_SELFTEST")) {
         ArtflowSelfTest::run(&shell, qEnvironmentVariable("ARTFLOW_SELFTEST"));

@@ -152,6 +152,11 @@ void BrushStroke::finish()
     m_samples.clear();
 }
 
+void BrushStroke::setClip(const QRect &rect)
+{
+    m_clip = rect;
+}
+
 void BrushStroke::setMirror(bool enabled, qreal axisX)
 {
     m_mirror = enabled;
@@ -364,10 +369,18 @@ void BrushStroke::stamp(const QPointF &center, qreal diameter, qreal alpha, qrea
     const bool buildUp = m_preset.buildUp;
     const float amount = float(alpha);
 
-    const int left = qFloor(center.x() - radius - 1.0);
-    const int right = qCeil(center.x() + radius + 1.0);
-    const int top = qFloor(center.y() - radius - 1.0);
-    const int bottom = qCeil(center.y() + radius + 1.0);
+    int left = qFloor(center.x() - radius - 1.0);
+    int right = qCeil(center.x() + radius + 1.0);
+    int top = qFloor(center.y() - radius - 1.0);
+    int bottom = qCeil(center.y() + radius + 1.0);
+    if (!m_clip.isEmpty()) {
+        // Nothing lands off the page.
+        left = qMax(left, m_clip.left());
+        right = qMin(right, m_clip.right());
+        top = qMax(top, m_clip.top());
+        bottom = qMin(bottom, m_clip.bottom());
+        if (left > right || top > bottom) return;
+    }
 
     for (int tileY = floorDiv(top, TileSize); tileY <= floorDiv(bottom, TileSize); ++tileY) {
         for (int tileX = floorDiv(left, TileSize); tileX <= floorDiv(right, TileSize); ++tileX) {

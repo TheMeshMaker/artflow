@@ -5,8 +5,12 @@
  */
 #include "ArtflowTheme.h"
 
+#include "pencildef.h"
+
 #include <QApplication>
+#include <QCoreApplication>
 #include <QFontDatabase>
+#include <QSettings>
 #include <QPalette>
 #include <QStyleFactory>
 #include <QWidget>
@@ -45,7 +49,7 @@ QToolButton#optionTile:checked { background: @accentSoft; }
 QToolButton#optionTile:checked:hover { background: @accentSoft; }
 QLineEdit#layerNameEditor { padding: 2px 6px; border-radius: 6px; }
 QToolButton#brushStyle { background: @raised; border: 1px solid @line; border-radius: 12px; padding: 0; }
-QToolButton#brushStyle:hover { background: @hover; border-color: #3a4150; }
+QToolButton#brushStyle:hover { background: @hover; border-color: @strong; }
 QToolButton#brushStyle:disabled { background: transparent; border-color: @raised; }
 QToolButton#pillButton:hover { background: @hover; color: @text; }
 QToolButton#pillButton:checked { background: @accentSoft; color: @accentHover; }
@@ -56,13 +60,16 @@ QWidget[artflowSection="true"] { background: @panel; }
 QLabel { background: transparent; }
 QLabel#panelTitle { color: @text; font-weight: 600; }
 QLabel#muted { color: @muted; }
+QToolButton#recentRow { background: @raised; border: 1px solid @line; border-radius: 10px; padding: 9px 12px; text-align: left; }
+QToolButton#recentRow:hover { background: @hover; border-color: @accent; }
+QToolButton#zoomLabel { padding: 0 4px; color: @text; font-weight: 600; }
 
 QScrollArea { background: transparent; border: none; }
 QScrollArea > QWidget > QWidget { background: transparent; }
 QScrollBar:horizontal { height: 8px; background: transparent; margin: 0 6px; }
 QScrollBar:vertical { width: 8px; background: transparent; margin: 6px 0; }
 QScrollBar::handle { background: @line; border-radius: 4px; min-width: 36px; min-height: 36px; }
-QScrollBar::handle:hover { background: #3a4150; }
+QScrollBar::handle:hover { background: @strong; }
 QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; }
 QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
 
@@ -82,7 +89,7 @@ QComboBox QAbstractItemView { background: @raised; border: 1px solid @line; bord
     selection-background-color: @hover; outline: 0; }
 
 QCheckBox { spacing: 8px; }
-QCheckBox::indicator { width: 16px; height: 16px; border-radius: 5px; border: 1px solid #3a4150; background: @raised; }
+QCheckBox::indicator { width: 16px; height: 16px; border-radius: 5px; border: 1px solid @strong; background: @raised; }
 QCheckBox::indicator:hover { border-color: @accent; }
 QCheckBox::indicator:checked { background: @accent; border-color: @accent; image: url(:/artflow/icons/check-white.svg); }
 
@@ -124,6 +131,7 @@ QHeaderView::section { background: @panel; color: @muted; border: none; padding:
     // Longest names first, so "@accentHover" is not eaten by "@accent".
     const QList<QPair<QString, QColor>> tokens = {
         {QStringLiteral("@accentHover"), accentHover()},
+        {QStringLiteral("@strong"), colors().dark ? line().lighter(135) : line().darker(118)},
         {QStringLiteral("@accentSoft"), accentSoft()},
         {QStringLiteral("@accent"), accent()},
         {QStringLiteral("@window"), window()},
@@ -189,6 +197,110 @@ QFont ArtflowTheme::uiFont(qreal pointSize, int weight)
     font.setWeight(QFont::Weight(weight));
     font.setHintingPreference(QFont::PreferNoHinting);
     return font;
+}
+
+namespace {
+
+ArtflowTheme::Colors styleColors(const QString &id)
+{
+    ArtflowTheme::Colors c;
+    if (id == QLatin1String("graphite")) {
+        c.window = QColor(0x14, 0x14, 0x15);
+        c.panel = QColor(0x1b, 0x1b, 0x1d);
+        c.raised = QColor(0x25, 0x25, 0x28);
+        c.hover = QColor(0x30, 0x30, 0x34);
+        c.line = QColor(0x36, 0x36, 0x3b);
+        c.canvasSurround = QColor(0x0e, 0x0e, 0x10);
+        c.text = QColor(0xed, 0xed, 0xef);
+        c.textMuted = QColor(0xa2, 0xa2, 0xa8);
+        c.textFaint = QColor(0x66, 0x66, 0x6c);
+    } else if (id == QLatin1String("paper")) {
+        c.dark = false;
+        c.window = QColor(0xe9, 0xeb, 0xf0);
+        c.panel = QColor(0xf5, 0xf6, 0xf8);
+        c.raised = QColor(0xff, 0xff, 0xff);
+        c.hover = QColor(0xe4, 0xe7, 0xee);
+        c.line = QColor(0xd5, 0xd9, 0xe2);
+        c.canvasSurround = QColor(0xc9, 0xce, 0xd8);
+        c.text = QColor(0x1d, 0x21, 0x2c);
+        c.textMuted = QColor(0x59, 0x60, 0x72);
+        c.textFaint = QColor(0x98, 0x9f, 0xae);
+    } else {
+        c.window = QColor(0x0f, 0x11, 0x16);
+        c.panel = QColor(0x15, 0x18, 0x1e);
+        c.raised = QColor(0x1d, 0x21, 0x2a);
+        c.hover = QColor(0x26, 0x2b, 0x36);
+        c.line = QColor(0x2a, 0x2f, 0x3b);
+        c.canvasSurround = QColor(0x0b, 0x0d, 0x11);
+        c.text = QColor(0xe8, 0xea, 0xf0);
+        c.textMuted = QColor(0x95, 0x9c, 0xab);
+        c.textFaint = QColor(0x5d, 0x64, 0x72);
+    }
+    return c;
+}
+
+ArtflowTheme::Colors &current()
+{
+    static ArtflowTheme::Colors colors = [] {
+        QSettings settings(PENCIL2D, PENCIL2D);
+        ArtflowTheme::Colors c = styleColors(settings.value(QStringLiteral("ArtFlowLook/style"), QStringLiteral("midnight")).toString());
+        c.accent = ArtflowTheme::accentColor(settings.value(QStringLiteral("ArtFlowLook/accent"), QStringLiteral("violet")).toString());
+        return c;
+    }();
+    return colors;
+}
+
+}
+
+const ArtflowTheme::Colors &ArtflowTheme::colors()
+{
+    return current();
+}
+
+QStringList ArtflowTheme::styleIds()
+{
+    return {QStringLiteral("midnight"), QStringLiteral("graphite"), QStringLiteral("paper")};
+}
+
+QString ArtflowTheme::styleName(const QString &id)
+{
+    if (id == QLatin1String("graphite")) return QCoreApplication::translate("ArtflowTheme", "Graphite");
+    if (id == QLatin1String("paper")) return QCoreApplication::translate("ArtflowTheme", "Paper");
+    return QCoreApplication::translate("ArtflowTheme", "Midnight");
+}
+
+QStringList ArtflowTheme::accentIds()
+{
+    return {QStringLiteral("violet"), QStringLiteral("blue"), QStringLiteral("teal"), QStringLiteral("rose"), QStringLiteral("amber")};
+}
+
+QColor ArtflowTheme::accentColor(const QString &id)
+{
+    if (id == QLatin1String("blue")) return QColor(0x4c, 0x8d, 0xff);
+    if (id == QLatin1String("teal")) return QColor(0x1f, 0xb5, 0xa3);
+    if (id == QLatin1String("rose")) return QColor(0xf2, 0x5a, 0x8a);
+    if (id == QLatin1String("amber")) return QColor(0xe8, 0x9a, 0x1c);
+    return QColor(0x8b, 0x7c, 0xff);
+}
+
+QString ArtflowTheme::currentStyle()
+{
+    return QSettings(PENCIL2D, PENCIL2D).value(QStringLiteral("ArtFlowLook/style"), QStringLiteral("midnight")).toString();
+}
+
+QString ArtflowTheme::currentAccent()
+{
+    return QSettings(PENCIL2D, PENCIL2D).value(QStringLiteral("ArtFlowLook/accent"), QStringLiteral("violet")).toString();
+}
+
+void ArtflowTheme::setLook(const QString &style, const QString &accent)
+{
+    QSettings settings(PENCIL2D, PENCIL2D);
+    settings.setValue(QStringLiteral("ArtFlowLook/style"), style);
+    settings.setValue(QStringLiteral("ArtFlowLook/accent"), accent);
+    Colors c = styleColors(style);
+    c.accent = accentColor(accent);
+    current() = c;
 }
 
 void ArtflowTheme::apply(QApplication &app)

@@ -6,6 +6,7 @@
 #include "StudioCore.h"
 
 #include <QEvent>
+#include <QSettings>
 #include <QTimer>
 
 #include "actioncommands.h"
@@ -89,6 +90,32 @@ Editor *StudioCore::editor() const
 ScribbleArea *StudioCore::canvas() const
 {
     return m_editor->getScribbleArea();
+}
+
+QRect StudioCore::pageRect() const
+{
+    return pageRect(m_editor);
+}
+
+QRect StudioCore::pageRect(Editor *editor)
+{
+    Object *object = editor->object();
+    if (!object) return QRect();
+    const std::vector<LayerCamera *> cameras = object->getLayersByType<LayerCamera>();
+    if (cameras.empty()) return QRect();
+    const QRectF frame = cameras.front()->getViewRect();
+    const QTransform view = cameras.front()->getViewAtFrame(editor->currentFrame());
+    return view.inverted().mapRect(frame).toAlignedRect();
+}
+
+bool StudioCore::keepOnPage()
+{
+    return QSettings(PENCIL2D, PENCIL2D).value(QStringLiteral("ArtFlowLook/keepOnPage"), true).toBool();
+}
+
+void StudioCore::setKeepOnPage(bool keep)
+{
+    QSettings(PENCIL2D, PENCIL2D).setValue(QStringLiteral("ArtFlowLook/keepOnPage"), keep);
 }
 
 StudioBrushes *StudioCore::brushes() const

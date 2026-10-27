@@ -7,8 +7,14 @@
 
 #include <cmath>
 
+#include <QPainter>
 #include <QToolButton>
 #include <QVBoxLayout>
+
+#include "colormanager.h"
+#include "editor.h"
+
+#include <QPainterPath>
 
 #include "StudioBrushes.h"
 #include "StudioCore.h"
@@ -19,6 +25,46 @@
 #include "ShellControls.h"
 
 namespace {
+
+/// The colour that will be painted, see-through parts over a checkerboard.
+class ColorChip : public QWidget
+{
+public:
+    ColorChip(StudioCore *core, QWidget *parent)
+        : QWidget(parent)
+        , m_core(core)
+    {
+        setObjectName(QStringLiteral("colorChip"));
+        setFixedSize(30, 30);
+        setToolTip(QCoreApplication::translate("BrushSlidersPanel", "The colour you paint with, opacity included"));
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        const QRectF circle = QRectF(rect()).adjusted(2, 2, -2, -2);
+        QPainterPath shape;
+        shape.addEllipse(circle);
+        painter.save();
+        painter.setClipPath(shape);
+        const int cell = 5;
+        for (int y = 0; y < height(); y += cell) {
+            for (int x = 0; x < width(); x += cell) {
+                painter.fillRect(x, y, cell, cell, ((x + y) / cell) % 2 ? QColor(200, 200, 200) : Qt::white);
+            }
+        }
+        painter.fillPath(shape, m_core->editor()->color()->frontColor());
+        painter.restore();
+        painter.setPen(QPen(ArtflowTheme::line(), 1.5));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawEllipse(circle);
+    }
+
+private:
+    StudioCore *m_core;
+};
 
 // The size slider is logarithmic: fine steps for thin lines, big ones for
 // wide brushes. Slider units 0..1000 map to 1..MaxSize px.
@@ -72,6 +118,8 @@ BrushSlidersPanel::BrushSlidersPanel(StudioCore *core, QWidget *parent)
     m_opacity->setMaximumHeight(220);
     layout->addWidget(m_size, 3, Qt::AlignHCenter);
     layout->addWidget(m_opacity, 2, Qt::AlignHCenter);
+    m_chip = new ColorChip(core, this);
+    layout->addWidget(m_chip, 0, Qt::AlignHCenter);
     layout->addStretch(1);
 
     connect(m_size, &PillSlider::valueChanged, this, [this](int value) {
@@ -109,6 +157,7 @@ void BrushSlidersPanel::slotStyleChanged()
 
 void BrushSlidersPanel::slotBrushChanged()
 {
+    if (m_chip) m_chip->update();
     const qreal size = m_core->tools()->brushSize();
     const qreal opacity = m_core->tools()->brushOpacity();
 

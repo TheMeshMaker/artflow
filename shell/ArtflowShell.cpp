@@ -6,6 +6,7 @@
 #include "ArtflowShell.h"
 
 #include <QAbstractSpinBox>
+#include <QApplication>
 #include <QAction>
 #include <QComboBox>
 #include <QSignalBlocker>
@@ -62,6 +63,11 @@
 #include "panels/ShellControls.h"
 #include "panels/ShellWidgets.h"
 #include "panels/SymmetryGuide.h"
+#include "panels/HomeScreen.h"
+#include "panels/LookDialog.h"
+#include "panels/ViewControls.h"
+#include "TouchController.h"
+#include "preferencemanager.h"
 
 namespace {
 
@@ -218,7 +224,14 @@ void ArtflowShell::start(const QString &modeId)
     CameraPainter::setOutsideShade(surround);
     // Drawings scale smoothly instead of in square pixels.
     CanvasPainter::setSmoothScaling(true);
-    if (QWidget *canvas = m_core->canvas()) new SymmetryGuide(m_core, canvas);
+    if (QWidget *canvas = m_core->canvas()) {
+        new SymmetryGuide(m_core, canvas);
+        new ViewControls(m_core, canvas);
+        new TouchController(m_core, canvas);
+    }
+    // The start screen chooses the page size; the engine never asks.
+    m_core->editor()->preference()->set(SETTING::ASK_FOR_PRESET, false);
+    m_home = new HomeScreen(m_window);
     if (BackgroundWidget *background = m_window->findChild<BackgroundWidget *>()) {
         background->setStyleSheet(QStringLiteral("BackgroundWidget { background-color: white; border: none; }"));
     }
@@ -259,6 +272,11 @@ void ArtflowShell::buildTopBar()
     connect(menu, &QMenu::aboutToShow, this, &ArtflowShell::populateMenu);
     m_menuButton->setMenu(menu);
     m_topBar->addWidget(m_menuButton);
+
+    QToolButton *home = iconButton(QStringLiteral("home"), tr("Start screen: new, open and recent drawings"));
+    home->setObjectName(QStringLiteral("homeButton"));
+    connect(home, &QToolButton::clicked, this, &ArtflowShell::showHome);
+    m_topBar->addWidget(home);
 
     QWidget *gap = new QWidget(m_topBar);
     gap->setFixedWidth(8);
@@ -322,6 +340,18 @@ void ArtflowShell::buildTopBar()
 
     m_topBar->addSeparator();
 
+    m_panelsButton = iconButton(QStringLiteral("panels"), withKeys(tr("Hide or show the side panels, for more room"), QStringLiteral("Tab")));
+    m_panelsButton->setObjectName(QStringLiteral("panelsButton"));
+    m_panelsButton->setCheckable(true);
+    m_panelsButton->setChecked(true);
+    connect(m_panelsButton, &QToolButton::clicked, this, &ArtflowShell::togglePanels);
+    m_topBar->addWidget(m_panelsButton);
+
+    QToolButton *look = iconButton(QStringLiteral("look"), tr("Look and layout: style, colours, size and where panels sit"));
+    look->setObjectName(QStringLiteral("lookButton"));
+    connect(look, &QToolButton::clicked, this, &ArtflowShell::showLookDialog);
+    m_topBar->addWidget(look);
+
     QToolButton *pen = iconButton(QStringLiteral("pen"), tr("Pen buttons: choose what the side buttons of your pen do"));
     connect(pen, &QToolButton::clicked, this, &ArtflowShell::showPenButtonsDialog);
     m_topBar->addWidget(pen);
@@ -351,12 +381,13 @@ void ArtflowShell::buildDocks()
     m_timelineDock = makeDock(tr("Timeline"), "ArtFlowTimelineDock", m_timelineStack, Qt::BottomDockWidgetArea);
     LayerStackPanel *layers = new LayerStackPanel(m_core, m_model);
     connect(layers, &LayerStackPanel::heightLimitChanged, this, &ArtflowShell::resizeRightColumn);
-    m_layersDock = makeDock(tr("Layers"), "ArtFlowLayersDock", layers, Qt::RightDockWidgetArea);
+    m_layersDock = makeDock(tr("Layers"), "ArtFlowLayersDock", layers, panelArea());
     BrushSlidersPanel *sliders = new BrushSlidersPanel(m_core);
     connect(sliders, &BrushSlidersPanel::brushStylesRequested, this, [this](QWidget *anchor) {
         showBrushLibrary(anchor, false);
     });
-    m_brushDock = makeDock(tr("Brush"), "ArtFlowBrushDock", sliders, Qt::LeftDockWidgetArea);
+    m_brushDock = makeDock(tr("Brush"), "ArtFlowBrushDock", sliders,
+                           LookDialog::sliderSide() == QLatin1String("right") ? Qt::RightDockWidgetArea : Qt::LeftDockWidgetArea);
 }
 
 void ArtflowShell::buildActions()
@@ -398,6 +429,7 @@ void ArtflowShell::buildActions()
         m_core->tools()->setBrushSize(m_core->tools()->brushSize() * 1.25);
     });
     addAction(tr("Redo"), {QKeySequence(QStringLiteral("Ctrl+Shift+Z"))}, [this]() { m_core->history()->redo(); });
+    addAction(tr("Hide or show the side panels"), {QKeySequence(Qt::Key_Tab)}, [this]() { togglePanels(); });
     addAction(tr("Keys and gestures"), {QKeySequence(Qt::Key_F1), QKeySequence(QStringLiteral("?"))},
               [this]() { showCheatSheet(); });
 }
@@ -527,11 +559,11 @@ void ArtflowShell::applyChrome()
     for (QDockWidget *dock : m_window->findChildren<QDockWidget *>()) {
         if (ours.contains(dock)) continue;
         const bool wanted = mode->engineDocks.contains(dock->objectName());
-        if (wanted && (dock->isFloating() || m_window->dockWidgetArea(dock) != Qt::RightDockWidgetArea)) {
-            // Engine panels always sit to the right of the canvas, never as
-            // separate floating windows.
+        if (wanted && (dock->isFloating() || m_window->dockWidgetArea(dock) != panelArea())) {
+            // Engine panels always sit beside the canvas on the panels' side,
+            // never as separate floating windows.
             dock->setFloating(false);
-            m_window->addDockWidget(Qt::RightDockWidgetArea, dock);
+            m_window->addDockWidget(panelArea(), dock);
         }
         if (wanted) {
             ArtflowTheme::restyleEnginePanel(dock);
@@ -551,7 +583,56 @@ void ArtflowShell::applyChrome()
     m_layersDock->setVisible(mode->showLayerStack);
     m_brushDock->setVisible(true);
 
+    // The sliders sit on the side chosen in Look and layout.
+    const Qt::DockWidgetArea sliders = LookDialog::sliderSide() == QLatin1String("right") ? Qt::RightDockWidgetArea : Qt::LeftDockWidgetArea;
+    if (m_window->dockWidgetArea(m_brushDock) != sliders) m_window->addDockWidget(sliders, m_brushDock);
+
+    if (m_panelsHidden) {
+        // Only the canvas, the sliders and the timeline: room for small screens.
+        for (QDockWidget *dock : rightColumn()) dock->hide();
+        return;
+    }
     arrangeRightColumn(mode->showLayerStack ? 300 : 280);
+}
+
+Qt::DockWidgetArea ArtflowShell::panelArea() const
+{
+    return LookDialog::panelSide() == QLatin1String("left") ? Qt::LeftDockWidgetArea : Qt::RightDockWidgetArea;
+}
+
+void ArtflowShell::showHome()
+{
+    if (m_home) m_home->open();
+}
+
+void ArtflowShell::togglePanels()
+{
+    m_panelsHidden = !m_panelsHidden;
+    if (m_panelsButton) m_panelsButton->setChecked(!m_panelsHidden);
+    applyChrome();
+}
+
+void ArtflowShell::showLookDialog()
+{
+    LookDialog dialog(m_window);
+    connect(&dialog, &LookDialog::lookChanged, this, &ArtflowShell::applyLook);
+    connect(&dialog, &LookDialog::placementChanged, this, &ArtflowShell::applyChrome);
+    dialog.adjustSize();
+    dialog.move(m_window->geometry().center() - QPoint(dialog.width() / 2, dialog.height() / 2));
+    dialog.exec();
+}
+
+void ArtflowShell::applyLook()
+{
+    ArtflowTheme::apply(*qApp);
+    QColor surround = ArtflowTheme::canvasSurround();
+    surround.setAlpha(238);
+    CameraPainter::setOutsideShade(surround);
+    if (ScribbleArea *canvas = m_core->canvas()) canvas->updateFrame();
+    // Custom-painted parts take the new colours on their next paint.
+    for (QWidget *widget : QApplication::allWidgets()) widget->update();
+    rebuildToolStrip();
+    rebuildContextBar();
 }
 
 QList<QDockWidget *> ArtflowShell::rightColumn() const
@@ -573,7 +654,7 @@ void ArtflowShell::arrangeRightColumn(int width)
 
     for (QDockWidget *dock : column) {
         // Adding a dock that is already there moves it to the end.
-        m_window->addDockWidget(Qt::RightDockWidgetArea, dock, Qt::Vertical);
+        m_window->addDockWidget(panelArea(), dock, Qt::Vertical);
         dock->show();
 
         // The sections share one panel colour; the gaps between them read

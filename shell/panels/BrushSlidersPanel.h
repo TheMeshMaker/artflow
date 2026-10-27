@@ -34,6 +34,7 @@ private Q_SLOTS:
 private:
     StudioCore *m_core;
     QToolButton *m_style;
+    QWidget *m_chip {nullptr};
     PillSlider *m_size;
     PillSlider *m_opacity;
 };

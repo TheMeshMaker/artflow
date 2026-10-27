@@ -12,6 +12,8 @@
 #include "layermanager.h"
 #include "scribblearea.h"
 
+#include "StudioCore.h"
+
 ArtTool::ArtTool(QObject *parent)
     : BaseTool(parent)
 {
@@ -51,6 +53,11 @@ void ArtTool::showPreview(const QImage &image, const QPoint &topLeft)
     patch.fill(Qt::transparent);
     if (!image.isNull()) {
         QPainter painter(&patch);
+        // Like the brushes, nothing lands off the page.
+        if (StudioCore::keepOnPage()) {
+            const QRect page = StudioCore::pageRect(mEditor);
+            if (!page.isEmpty()) painter.setClipRect(page.translated(-area.topLeft()));
+        }
         painter.drawImage(bounds.topLeft() - area.topLeft(), image);
     }
     mScribbleArea->drawStrokePatch(patch, area.topLeft(), QPainter::CompositionMode_Source);

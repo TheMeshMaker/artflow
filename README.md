@@ -9,6 +9,13 @@ modes over one engine:
   time, with every layer as a track.
 * **Studio**: drawing and painting with layers, brushes and colours.
 
+## About this project
+
+ArtFlow was **made with AI**: it was written by an AI coding assistant
+(Claude), directed and tested by me. I made it as a tool for **learning to
+draw and animate**, and it is free for anyone else who needs a simple,
+friendly place to start.
+
 ## What is inside
 
 * **A smooth brush engine** with 16 styles. Pencil tool: Pencil, Soft
@@ -23,7 +30,19 @@ modes over one engine:
 * **Symmetry** drawing and **Adjust** (hue, saturation, brightness,
   contrast, blur, invert, black & white).
 * **Layers** in every mode: thumbnails, rename, drag to reorder,
-  duplicate, hide and layer opacity.
+  duplicate, hide, layer opacity, and import a picture as a new layer.
+* **A start screen** with new drawings by page size (wide, square, tall,
+  small), Open, and your recent drawings.
+* **Touch screens and small laptops** (made with the ASUS ProArt PX13 in
+  mind): pinch to zoom, drag with two fingers to move, twist to turn the
+  page, two-finger tap to undo, three-finger tap to redo; a palm resting
+  while you use the pen is ignored. A zoom control sits in the canvas
+  corner, and Tab hides the side panels for more room.
+* **Your own look:** Midnight, Graphite or Paper styles, five accent
+  colours, a compact interface size (picked automatically on small
+  screens), and panels and sliders on either side.
+* Drawing stays on the page, and **GIF and MP4 export** work out of the
+  box (FFmpeg is bundled).
 * **Pen side buttons** (made for the ASUS Pen 2.0): upper = Redo,
   lower = Undo, remappable with a "press each button" step.
 * **Few, familiar keys:** B brush, N pencil, E eraser, G fill, L lasso

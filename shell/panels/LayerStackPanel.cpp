@@ -6,6 +6,8 @@
 #include "LayerStackPanel.h"
 
 #include <QAction>
+#include <QFileDialog>
+#include <QMessageBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -23,6 +25,7 @@
 #include "StudioLayers.h"
 #include "StudioTimeline.h"
 #include "StudioTimelineModel.h"
+#include "StudioTools.h"
 
 #include "ArtflowIcons.h"
 #include "ArtflowTheme.h"
@@ -344,6 +347,19 @@ LayerStackPanel::LayerStackPanel(StudioCore *core, StudioTimelineModel *model, Q
     QToolButton *add = ShellWidgets::makeButton(QStringLiteral("layer-add"), tr("New drawing layer"), this);
     QToolButton *copy = ShellWidgets::makeButton(QStringLiteral("layer-duplicate"), tr("Copy this layer with all its drawings"), this);
     QToolButton *remove = ShellWidgets::makeButton(QStringLiteral("layer-delete"), tr("Delete layer"), this);
+    QToolButton *picture = ShellWidgets::makeButton(QStringLiteral("image"), tr("Import a picture as a new layer"), this);
+    picture->setObjectName(QStringLiteral("layerImport"));
+    connect(picture, &QToolButton::clicked, this, [this]() {
+        const QString path = QFileDialog::getOpenFileName(this, tr("Import a picture"), QString(),
+                                                          tr("Pictures (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff)"));
+        if (path.isEmpty()) return;
+        if (!m_core->layers()->importImage(path)) {
+            QMessageBox::warning(this, tr("Import a picture"), tr("This file could not be opened as a picture."));
+            return;
+        }
+        // Ready to move and resize it.
+        m_core->tools()->activate(ToolIntent::Move);
+    });
     add->setObjectName(QStringLiteral("layerAdd"));
     copy->setObjectName(QStringLiteral("layerDuplicate"));
     connect(add, &QToolButton::clicked, this, [this]() { m_core->layers()->addDrawingLayer(); });
@@ -351,6 +367,7 @@ LayerStackPanel::LayerStackPanel(StudioCore *core, StudioTimelineModel *model, Q
     connect(remove, &QToolButton::clicked, this, [this]() { m_core->layers()->removeActiveLayer(); });
     bar->addWidget(title);
     bar->addStretch(1);
+    bar->addWidget(picture);
     bar->addWidget(add);
     bar->addWidget(copy);
     bar->addWidget(remove);

@@ -41,6 +41,10 @@ set(ARTFLOW_SHELL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/panels/ShellControls.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/panels/ShellWidgets.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/panels/SymmetryGuide.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell/panels/HomeScreen.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell/panels/LookDialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell/panels/ViewControls.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell/TouchController.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/panels/TracksPanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/artflow.qrc
 )

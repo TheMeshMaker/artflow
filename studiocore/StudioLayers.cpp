@@ -5,12 +5,18 @@
  */
 #include "StudioLayers.h"
 
+#include <QFileInfo>
+#include <QImage>
+
 #include "actioncommands.h"
 #include "editor.h"
 #include "layer.h"
 #include "layerbitmap.h"
+#include "bitmapimage.h"
 #include "layermanager.h"
 #include "object.h"
+#include "selectionmanager.h"
+#include "undoredomanager.h"
 #include "preferencemanager.h"
 
 #include "StudioCore.h"
@@ -125,6 +131,40 @@ void StudioLayers::moveTo(Layer *layer, int row)
     }
     m_core->editor()->object()->modification();
     m_compressor.start();
+}
+
+Layer *StudioLayers::importImage(const QString &path)
+{
+    QImage picture(path);
+    if (picture.isNull()) return nullptr;
+    picture = picture.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+
+    // Fitted inside the page, centred on it; never enlarged.
+    const QRect page = m_core->pageRect();
+    if (!page.isEmpty() && (picture.width() > page.width() || picture.height() > page.height())) {
+        picture = picture.scaled(page.size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    }
+    const QPoint centre = page.isEmpty() ? QPoint(0, 0) : page.center();
+    const QPoint topLeft = centre - QPoint(picture.width() / 2, picture.height() / 2);
+
+    Editor *editor = m_core->editor();
+    LayerManager *manager = editor->layers();
+    Layer *layer = manager->createBitmapLayer(manager->nameSuggestLayer(QFileInfo(path).completeBaseName()));
+    if (!layer) return nullptr;
+    const int frame = editor->currentFrame();
+    if (!layer->keyExists(frame)) layer->addNewKeyFrameAt(frame);
+
+    const SAVESTATE_ID state = editor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+    BitmapImage *bitmap = static_cast<LayerBitmap *>(layer)->getBitmapImageAtFrame(frame);
+    if (!bitmap) return layer;
+    BitmapImage placed(topLeft, picture);
+    bitmap->paste(&placed);
+    editor->setModified(manager->currentLayerIndex(), frame);
+    editor->undoRedo()->record(state, tr("Import image"));
+    editor->select()->setSelection(QRectF(topLeft, picture.size()), true);
+    editor->updateFrame();
+    m_compressor.start();
+    return layer;
 }
 
 qreal StudioLayers::opacity(Layer *layer) const

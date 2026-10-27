@@ -11,6 +11,7 @@
 #include <QContextMenuEvent>
 #include <QCryptographicHash>
 #include <QDateTime>
+#include <QElapsedTimer>
 #include <QDir>
 #include <QDockWidget>
 #include <QFile>
@@ -57,6 +58,10 @@
 #include "BeginnerShortcuts.h"
 #include "ModeManager.h"
 #include "panels/AdjustPanel.h"
+#include "panels/HomeScreen.h"
+#include "panels/LookDialog.h"
+#include "ArtflowTheme.h"
+#include "TouchController.h"
 #include "panels/BrushLibrary.h"
 #include "panels/LayerStackPanel.h"
 #include "tools/ShapeTool.h"
@@ -99,6 +104,10 @@ public:
         QSettings settings(PENCIL2D, PENCIL2D);
         settings.beginGroup(QStringLiteral("ArtFlowBrushes"));
         for (const QString &key : settings.allKeys()) m_brushSettings.insert(key, settings.value(key));
+        settings.endGroup();
+        settings.beginGroup(QStringLiteral("ArtFlowLook"));
+        for (const QString &key : settings.allKeys()) m_lookSettings.insert(key, settings.value(key));
+        settings.endGroup();
 
         // Judge the layout the way people see it: maximized.
         m_shell->window()->showMaximized();
@@ -167,6 +176,10 @@ private:
         settings.remove(QStringLiteral("ArtFlowBrushes"));
         settings.beginGroup(QStringLiteral("ArtFlowBrushes"));
         for (auto it = m_brushSettings.constBegin(); it != m_brushSettings.constEnd(); ++it) settings.setValue(it.key(), it.value());
+        settings.endGroup();
+        settings.remove(QStringLiteral("ArtFlowLook"));
+        settings.beginGroup(QStringLiteral("ArtFlowLook"));
+        for (auto it = m_lookSettings.constBegin(); it != m_lookSettings.constEnd(); ++it) settings.setValue(it.key(), it.value());
         settings.endGroup();
 
         log(QStringLiteral("RESULT  %1 failure(s)").arg(m_failures));
@@ -337,6 +350,28 @@ private:
         }
         send(QEvent::TabletRelease, to, 0.0, Qt::LeftButton, Qt::NoButton);
         settle();
+    }
+
+    static QPointingDevice *touchScreen()
+    {
+        static QPointingDevice *device = new QPointingDevice(QStringLiteral("ArtFlow test touch screen"), 4242,
+                                                             QInputDevice::DeviceType::TouchScreen,
+                                                             QPointingDevice::PointerType::Finger,
+                                                             QInputDevice::Capability::Position, 10, 0);
+        return device;
+    }
+
+    /// Fingers on the canvas: each list holds the fingers down at that moment.
+    void touch(QEvent::Type type, const QList<QPointF> &fingers, QEventPoint::State state)
+    {
+        QList<QEventPoint> points;
+        for (int i = 0; i < fingers.size(); ++i) {
+            points << QEventPoint(i + 1, state, fingers[i], canvas()->mapToGlobal(fingers[i]));
+        }
+        QTouchEvent event(type, touchScreen(), Qt::NoModifier, points);
+        // Sent like a real one, so Qt fills in the positions on the canvas.
+        QApplication::sendEvent(canvas(), &event);
+        QApplication::processEvents();
     }
 
     /// Non-transparent pixels of the drawing shown on the active layer.
@@ -738,6 +773,45 @@ private:
             freshFrame();
         };
 
+        // Low-opacity black must look grey, while drawing and after.
+        m_steps << [this]() {
+            useStyle(QStringLiteral("ink-pen"));
+            m_core->tools()->setBrushSize(24);
+            editor()->color()->setFrontColor(QColor(Qt::black));
+            settle(2);
+            m_core->tools()->setBrushOpacity(0.3);
+            settle(2);
+            const QColor front = editor()->color()->frontColor();
+            log(QStringLiteral("INFO  front colour after opacity 30%: rgba(%1,%2,%3,%4)").arg(front.red()).arg(front.green())
+                    .arg(front.blue()).arg(front.alpha()));
+            const QVector<QPointF> points = line(at(-300, 40), at(300, 40), 30);
+            sendTablet(QEvent::TabletMove, points.first(), 0.0, Qt::NoButton, Qt::NoButton);
+            sendTablet(QEvent::TabletPress, points.first(), 0.8, Qt::LeftButton, Qt::LeftButton);
+            for (int i = 1; i < points.size(); ++i) {
+                sendTablet(QEvent::TabletMove, points[i], 0.8, Qt::NoButton, Qt::LeftButton);
+                QApplication::processEvents();
+            }
+            settle(2);
+            auto sample = [this](const QPointF &p) {
+                const QImage shot = canvas()->grab().toImage();
+                return QColor(shot.pixel((p * canvas()->devicePixelRatioF()).toPoint()));
+            };
+            canvas()->grab().save(m_out.absoluteFilePath(QStringLiteral("opacity-during.png")));
+            m_shell->window()->grab().save(m_out.absoluteFilePath(QStringLiteral("opacity-during-window.png")));
+            const QColor during = sample(at(-100, 40));
+            sendTablet(QEvent::TabletRelease, points.last(), 0.0, Qt::LeftButton, Qt::NoButton);
+            settle();
+            canvas()->grab().save(m_out.absoluteFilePath(QStringLiteral("opacity-after.png")));
+            const QColor after = sample(at(-100, 40));
+            auto neutral = [](const QColor &c) {
+                return qAbs(c.red() - c.green()) < 10 && qAbs(c.green() - c.blue()) < 10 && c.value() < 235;
+            };
+            check(QStringLiteral("30% black is grey while drawing and after"), neutral(during) && neutral(after),
+                  QStringLiteral("while drawing rgb(%1,%2,%3), after rgb(%4,%5,%6)").arg(during.red()).arg(during.green())
+                      .arg(during.blue()).arg(after.red()).arg(after.green()).arg(after.blue()));
+            m_core->tools()->setBrushOpacity(1.0);
+        };
+
         // Shapes, lasso fill, text, symmetry
         m_steps << [this]() {
             editor()->color()->setFrontColor(QColor(40, 90, 200));
@@ -916,6 +990,153 @@ private:
             screenshot(QStringLiteral("final"));
         };
 
+        // Drawing stays on the page
+        m_steps << [this]() {
+            m_shell->modes()->switchTo(QStringLiteral("studio"));
+            m_core->tools()->activate(ToolIntent::Brush);
+            freshFrame();
+        };
+        m_steps << [this]() {
+            useStyle(QStringLiteral("round-brush"));
+            m_core->tools()->setBrushSize(30);
+            editor()->color()->setFrontColor(QColor(Qt::black));
+            const QRect page = m_core->pageRect();
+            const QPointF outside = editor()->view()->mapCanvasToScreen(QPointF(page.left() - 150, page.center().y()));
+            const QPointF inside = editor()->view()->mapCanvasToScreen(QPointF(page.left() + 200, page.center().y()));
+            const QVector<QPointF> points = line(outside, inside, 30);
+            pressureStroke(points, QVector<qreal>(points.size(), 0.9));
+        };
+        m_steps << [this]() {
+            Layer *layer = editor()->layers()->currentLayer();
+            BitmapImage *bitmap = static_cast<LayerBitmap *>(layer)->getLastBitmapImageAtFrame(editor()->currentFrame());
+            const QRect page = m_core->pageRect();
+            int off = 0;
+            int on = 0;
+            if (bitmap && bitmap->image()) {
+                const QImage image = bitmap->image()->convertToFormat(QImage::Format_ARGB32);
+                const QPoint origin = bitmap->topLeft();
+                for (int y = 0; y < image.height(); ++y) {
+                    for (int x = 0; x < image.width(); ++x) {
+                        if (qAlpha(image.pixel(x, y)) < 8) continue;
+                        if (page.contains(origin + QPoint(x, y))) ++on;
+                        else ++off;
+                    }
+                }
+            }
+            check(QStringLiteral("a stroke started off the page leaves nothing outside it"), on > 500 && off == 0,
+                  QStringLiteral("%1 px on the page, %2 off it").arg(on).arg(off));
+
+            // Touch: one finger draws, two fingers pinch, a two-finger tap undoes.
+            // Fingers right after the pen are a resting palm, so wait first.
+            QElapsedTimer pause;
+            pause.start();
+            while (pause.elapsed() < 1700) QApplication::processEvents(QEventLoop::AllEvents, 50);
+            m_before = paintedPixels();
+            TouchController::setFingersDraw(true);
+            touch(QEvent::TouchBegin, {at(-200, 150)}, QEventPoint::Pressed);
+            for (int i = 1; i <= 12; ++i) touch(QEvent::TouchUpdate, {at(-200 + i * 25, 150 + i * 4)}, QEventPoint::Updated);
+            touch(QEvent::TouchEnd, {at(100, 198)}, QEventPoint::Released);
+            settle();
+        };
+        m_steps << [this]() {
+            check(QStringLiteral("one finger draws"), paintedPixels() > m_before + 300,
+                  QStringLiteral("%1 -> %2 px").arg(m_before).arg(paintedPixels()));
+            m_scaleBefore = editor()->view()->scaling();
+            touch(QEvent::TouchBegin, {at(-100, 0), at(100, 0)}, QEventPoint::Pressed);
+            for (int i = 1; i <= 10; ++i) {
+                touch(QEvent::TouchUpdate, {at(-100 - i * 10, 0), at(100 + i * 10, 0)}, QEventPoint::Updated);
+            }
+            touch(QEvent::TouchEnd, {at(-200, 0), at(200, 0)}, QEventPoint::Released);
+            settle();
+            const qreal ratio = editor()->view()->scaling() / m_scaleBefore;
+            check(QStringLiteral("two fingers pinch to zoom"), ratio > 1.8 && ratio < 2.2, QStringLiteral("zoom x%1").arg(ratio, 0, 'f', 2));
+            m_before = paintedPixels();
+            touch(QEvent::TouchBegin, {at(-50, 0), at(50, 0)}, QEventPoint::Pressed);
+            touch(QEvent::TouchEnd, {at(-50, 0), at(50, 0)}, QEventPoint::Released);
+            settle();
+        };
+        m_steps << [this]() {
+            check(QStringLiteral("a two-finger tap undoes"), paintedPixels() < m_before - 300,
+                  QStringLiteral("%1 -> %2 px").arg(m_before).arg(paintedPixels()));
+            m_core->history()->redo();
+            QToolButton *fit = nullptr;
+            for (QToolButton *button : canvas()->findChildren<QToolButton *>()) {
+                if (button->toolTip().startsWith(QLatin1String("Fit the page"))) fit = button;
+            }
+            if (fit) fit->click();
+            settle();
+            const QRectF page = editor()->view()->getView().mapRect(QRectF(m_core->pageRect()));
+            check(QStringLiteral("the fit button shows the whole page again"),
+                  fit && QRectF(canvas()->rect()).contains(page) && page.width() > 0.8 * canvas()->width(),
+                  QStringLiteral("page %1 x %2").arg(qRound(page.width())).arg(qRound(page.height())));
+            screenshot(QStringLiteral("view-controls"));
+
+            // A picture becomes a new layer, fitted to the page.
+            QImage picture(2400, 900, QImage::Format_ARGB32);
+            picture.fill(QColor(30, 160, 120));
+            const QString path = m_out.absoluteFilePath(QStringLiteral("import-test.png"));
+            picture.save(path);
+            m_layersBefore = editor()->layers()->count();
+            Layer *imported = m_core->layers()->importImage(path);
+            settle();
+            const QImage layerImage = frameImage();
+            check(QStringLiteral("a picture imports as a new layer, fitted to the page"),
+                  imported && editor()->layers()->count() == m_layersBefore + 1 && imported->name().contains(QLatin1String("import-test"))
+                      && layerImage.width() <= m_core->pageRect().width() && layerImage.width() > 1000,
+                  QStringLiteral("%1 x %2 px on \"%3\"").arg(layerImage.width()).arg(layerImage.height())
+                      .arg(imported ? imported->name() : QString()));
+            screenshot(QStringLiteral("imported"));
+        };
+
+        // Looks, placement and the start screen
+        m_steps << [this]() {
+            ArtflowTheme::setLook(QStringLiteral("paper"), QStringLiteral("teal"));
+            ArtflowTheme::apply(*qApp);
+            for (QWidget *widget : QApplication::allWidgets()) widget->update();
+            settle();
+            const QColor bar = m_shell->window()->grab(QRect(0, 0, 40, 40)).toImage().pixelColor(30, 30);
+            check(QStringLiteral("the Paper style turns the interface light"), bar.lightness() > 180,
+                  QStringLiteral("top bar %1").arg(bar.name()));
+            screenshot(QStringLiteral("look-paper"));
+            {
+                LookDialog dialog(m_shell->window());
+                dialog.adjustSize();
+                dialog.grab().save(m_out.absoluteFilePath(QStringLiteral("look-dialog.png")));
+            }
+            ArtflowTheme::setLook(QStringLiteral("midnight"), QStringLiteral("violet"));
+            ArtflowTheme::apply(*qApp);
+            for (QWidget *widget : QApplication::allWidgets()) widget->update();
+
+            QSettings(PENCIL2D, PENCIL2D).setValue(QStringLiteral("ArtFlowLook/panelSide"), QStringLiteral("left"));
+            m_shell->togglePanels();
+            m_shell->togglePanels();
+            settle();
+        };
+        m_steps << [this]() {
+            QDockWidget *layers = m_shell->window()->findChild<QDockWidget *>(QStringLiteral("ArtFlowLayersDock"));
+            check(QStringLiteral("panels can sit on the left"),
+                  layers && m_shell->window()->dockWidgetArea(layers) == Qt::LeftDockWidgetArea && layers->isVisible());
+            screenshot(QStringLiteral("panels-left"));
+            QSettings(PENCIL2D, PENCIL2D).setValue(QStringLiteral("ArtFlowLook/panelSide"), QStringLiteral("right"));
+            m_shell->togglePanels();
+            settle();
+        };
+        m_steps << [this]() {
+            QDockWidget *layers = m_shell->window()->findChild<QDockWidget *>(QStringLiteral("ArtFlowLayersDock"));
+            check(QStringLiteral("Tab hides the side panels for more room"), layers && !layers->isVisible());
+            screenshot(QStringLiteral("panels-hidden"));
+            m_shell->togglePanels();
+            m_shell->showHome();
+            settle();
+        };
+        m_steps << [this]() {
+            HomeScreen *home = m_shell->window()->findChild<HomeScreen *>();
+            check(QStringLiteral("the start screen opens"), home && home->isVisible() && home->findChildren<PageCard *>().size() == 4);
+            screenshot(QStringLiteral("home"));
+            if (home) home->hide();
+            settle();
+        };
+
         // GIF and MP4 export, when ffmpeg is next to the program
         m_steps << [this]() {
             const QString ffmpeg = ffmpegLocation();
@@ -984,6 +1205,8 @@ private:
     QPointF m_mirrorRight;
     QStringList m_samplerFailures;
     QVariantMap m_brushSettings;
+    QVariantMap m_lookSettings;
+    qreal m_scaleBefore {1.0};
     QString m_penUndoText;
     QString m_redoState;
 };

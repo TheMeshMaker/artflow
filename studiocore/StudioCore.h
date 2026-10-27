@@ -62,6 +62,13 @@ public:
     /// canvas changes size (maximizing, switching modes) or a document opens.
     void fitView();
 
+    /// The page (the camera frame on the current frame), in canvas pixels.
+    QRect pageRect() const;
+    static QRect pageRect(Editor *editor);
+    /// Whether drawing stays on the page (on unless turned off in Look).
+    static bool keepOnPage();
+    static void setKeepOnPage(bool keep);
+
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 

@@ -281,6 +281,7 @@ QVector<BitmapBrushEngine::Patch> StudioBrushes::beginStroke(const StrokeStart &
 {
     const bool erasing = start.tool == ERASER;
     m_stroke.setMirror(m_symmetry, symmetryAxis());
+    m_stroke.setClip(StudioCore::keepOnPage() ? m_core->pageRect() : QRect());
     // The eraser's stroke is a mask the engine cuts out of the layer, so it
     // is drawn fully opaque whatever the colour.
     m_stroke.begin(erasing ? eraserPreset() : current(start.tool), erasing ? QColor(Qt::black) : start.color,

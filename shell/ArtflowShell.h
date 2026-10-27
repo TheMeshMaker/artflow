@@ -20,6 +20,7 @@ class QToolBar;
 class QToolButton;
 class QWidget;
 class BrushLibrary;
+class HomeScreen;
 class MainWindow2;
 class ModeManager;
 class ModeSwitch;
@@ -51,6 +52,11 @@ protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 public Q_SLOTS:
+    /// The start screen: new, open and recent drawings.
+    void showHome();
+    void showLookDialog();
+    /// Hides or shows the side panels, for more room on small screens.
+    void togglePanels();
     void showPenButtonsDialog();
     void showCheatSheet();
 
@@ -74,6 +80,8 @@ private:
     void rebuildContextBar();
     void syncContextBar();
     void showAdjustPanel();
+    void applyLook();
+    Qt::DockWidgetArea panelArea() const;
     QList<QDockWidget *> rightColumn() const;
 
 private:
@@ -102,6 +110,9 @@ private:
     QDockWidget *m_layersDock {nullptr};
     QDockWidget *m_brushDock {nullptr};
     BrushLibrary *m_brushLibrary {nullptr};
+    HomeScreen *m_home {nullptr};
+    QToolButton *m_panelsButton {nullptr};
+    bool m_panelsHidden {false};
 };
 
 #endif // ARTFLOW_SHELL_H
