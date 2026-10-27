@@ -700,6 +700,10 @@ QDomElement Layer::createBaseDomElement(QDomDocument& doc) const
     layerTag.setAttribute("name", name());
     layerTag.setAttribute("visibility", visible());
     layerTag.setAttribute("type", type());
+    if (mOpacity < 1.0)
+    {
+        layerTag.setAttribute("opacity", mOpacity);
+    }
     return layerTag;
 }
 
@@ -712,4 +716,5 @@ void Layer::loadBaseDomElement(const QDomElement& elem)
     }
     setName(elem.attribute("name", "untitled"));
     setVisible(elem.attribute("visibility", "1").toInt());
+    setOpacity(elem.attribute("opacity", "1").toDouble());
 }

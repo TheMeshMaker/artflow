@@ -741,7 +741,7 @@ void Object::paintImage(QPainter& painter,int frameNumber,
             BitmapImage* bitmap = layerBitmap->getLastBitmapImageAtFrame(frameNumber);
             if (bitmap)
             {
-                painter.setOpacity(bitmap->getOpacity());
+                painter.setOpacity(bitmap->getOpacity() * layer->opacity());
                 bitmap->paintImage(painter);
             }
 
@@ -753,7 +753,7 @@ void Object::paintImage(QPainter& painter,int frameNumber,
             VectorImage* vec = layerVector->getLastVectorImageAtFrame(frameNumber);
             if (vec)
             {
-                painter.setOpacity(vec->getOpacity());
+                painter.setOpacity(vec->getOpacity() * layer->opacity());
                 vec->paintImage(painter, *this, false, false, antialiasing);
             }
         }

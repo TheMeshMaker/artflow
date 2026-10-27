@@ -58,6 +58,10 @@ public:
     bool visible() const { return mVisible; }
     void setVisible(bool b) { mVisible = b; }
 
+    /// How opaque the whole layer is drawn, on top of each drawing's own opacity.
+    qreal opacity() const { return mOpacity; }
+    void setOpacity(qreal opacity) { mOpacity = qBound(0.0, opacity, 1.0); }
+
     /** Get selected keyframe positions sorted by position */
     QList<int> selectedKeyFramesPositions() const { return mSelectedFrames_byPosition; }
 
@@ -182,6 +186,7 @@ private:
     LAYER_TYPE meType = UNDEFINED;
     int        mId = 0;
     bool       mVisible = true;
+    qreal      mOpacity = 1.0;
     QString    mName;
 
     std::map<int, KeyFrame*, std::greater<int>> mKeyFrames;

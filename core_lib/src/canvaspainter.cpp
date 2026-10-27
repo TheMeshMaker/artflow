@@ -325,7 +325,7 @@ void CanvasPainter::paintCurrentBitmapFrame(QPainter& painter, const QRect& blit
 
     painter.setWorldMatrixEnabled(false);
 
-    currentBitmapPainter.setOpacity(paintedImage->getOpacity() - (1.0-painter.opacity()));
+    currentBitmapPainter.setOpacity((paintedImage->getOpacity() - (1.0-painter.opacity())) * layer->opacity());
     currentBitmapPainter.drawImage(paintedImage->topLeft(), *paintedImage->image());
 
     if (isCurrentLayer && isDrawing)
@@ -366,7 +366,7 @@ void CanvasPainter::paintCurrentVectorFrame(QPainter& painter, const QRect& blit
 
     // Paint existing vector image to the painter
     // Remember to adjust opacity based on additional opacity value from the keyframe
-    currentVectorPainter.setOpacity(vectorImage->getOpacity() - (1.0-painter.opacity()));
+    currentVectorPainter.setOpacity((vectorImage->getOpacity() - (1.0-painter.opacity())) * layer->opacity());
     vectorImage->paintImage(currentVectorPainter, *mObject, mOptions.bOutlines, mOptions.bThinLines, mOptions.bAntiAlias);
 
     if (isCurrentLayer && isDrawing) {

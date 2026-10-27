@@ -49,6 +49,10 @@ enum ToolType : int
     BUCKET,
     EYEDROPPER,
     BRUSH,
+    // Tools a program built on the core adds with ToolManager::addTool()
+    SHAPES,
+    LASSOFILL,
+    TEXT,
     TOOL_TYPE_COUNT
 };
 

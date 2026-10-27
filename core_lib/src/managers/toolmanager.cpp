@@ -72,6 +72,14 @@ bool ToolManager::init()
     return true;
 }
 
+void ToolManager::addTool(ToolType type, BaseTool* tool)
+{
+    Q_ASSERT(tool && !mToolSetHash.contains(type));
+    tool->setParent(this);
+    mToolSetHash.insert(type, tool);
+    tool->initialize(editor());
+}
+
 Status ToolManager::load(Object*)
 {
     setDefaultTool();

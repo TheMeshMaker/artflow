@@ -36,6 +36,10 @@ public:
     ~ToolManager() override;
 
     bool init() override;
+
+    /// Adds a tool that is not part of the core (see the SHAPES, LASSOFILL
+    /// and TEXT tool types); the manager owns and initializes it.
+    void addTool(ToolType type, BaseTool* tool);
     Status load(Object*) override;
     Status save(Object*) override;
 

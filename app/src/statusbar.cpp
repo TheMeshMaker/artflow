@@ -137,6 +137,15 @@ void StatusBar::updateToolStatus(ToolType tool)
         case BRUSH:
             mToolLabel->setText(tr("Click to paint. Hold Ctrl and Shift to erase or Alt to select a color from the canvas."));
             break;
+        case SHAPES:
+            mToolLabel->setText(tr("Click and drag to draw a shape. Hold Shift for a square, circle or straight line."));
+            break;
+        case LASSOFILL:
+            mToolLabel->setText(tr("Draw around an area to fill it with the current color."));
+            break;
+        case TEXT:
+            mToolLabel->setText(tr("Click to place text, type, then press Enter."));
+            break;
         default:
             Q_ASSERT(false);
     }
