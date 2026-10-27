@@ -49,6 +49,9 @@ private:
     QWidget *m_canvas;
     State m_state = State::Idle;
     QTimer m_wait;
+    QTimer m_frame;               ///< one view change per screen frame
+    QList<QPointF> m_pending;     ///< the fingers' latest places, for that frame
+    QList<QPointF> m_held;        ///< where a finger went while it waited
     QElapsedTimer m_since;
     QElapsedTimer m_penClock;
     QPointF m_start;

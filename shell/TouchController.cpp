@@ -9,10 +9,12 @@
 #include <QLineF>
 #include <QMouseEvent>
 #include <QSettings>
+#include <QSignalBlocker>
 #include <QTouchEvent>
 #include <QWidget>
 #include <QtMath>
 
+#include "canvaspainter.h"
 #include "editor.h"
 #include "pencildef.h"
 #include "viewmanager.h"
@@ -22,8 +24,13 @@
 
 namespace {
 /// A finger that has not moved this far yet may still become a gesture.
-const qreal StartDistance = 6.0;
-const int WaitMs = 90;
+/// Two hands rarely land together, so a lone finger waits a moment for the
+/// other one (or a clear stroke) before it draws.
+const qreal StartDistance = 40.0;
+const int WaitMs = 170;
+/// A second finger this soon after the first turns the first one's line
+/// into part of the gesture: the line goes away.
+const int CancelMs = 1000;
 /// Fingers this soon after the pen are a resting palm.
 const int PalmMs = 1500;
 const int TapMs = 280;
@@ -39,6 +46,11 @@ TouchController::TouchController(StudioCore *core, QWidget *canvas)
 {
     canvas->setAttribute(Qt::WA_AcceptTouchEvents);
     canvas->installEventFilter(this);
+    m_frame.setSingleShot(true);
+    m_frame.setInterval(8);
+    connect(&m_frame, &QTimer::timeout, this, [this]() {
+        if (m_state == State::Gesture && m_pending.size() >= 2) updateGesture(m_pending);
+    });
     m_wait.setSingleShot(true);
     connect(&m_wait, &QTimer::timeout, this, [this]() {
         if (m_state == State::Waiting) startDrawing();
@@ -96,6 +108,7 @@ bool TouchController::handle(QTouchEvent *event)
         m_maxPoints = int(points.size());
         m_travel = 0.0;
         m_start = m_last = points.value(0);
+        m_held.clear();
         if (points.size() >= 2) {
             beginGesture(points);
         } else {
@@ -111,10 +124,13 @@ bool TouchController::handle(QTouchEvent *event)
                 // A second finger soon after the first: it was a gesture,
                 // not a line, so the dot the first finger began goes away.
                 sendMouse(QEvent::MouseButtonRelease, m_last);
-                if (m_since.elapsed() < 300) m_core->history()->undo();
+                if (m_since.elapsed() < CancelMs) m_core->history()->undo();
             }
+            m_wait.stop();
             if (m_state == State::Gesture) {
-                updateGesture(points);
+                // Many touch updates come per screen frame; only the latest counts.
+                m_pending = points;
+                if (!m_frame.isActive()) m_frame.start();
             } else {
                 beginGesture(points);
             }
@@ -123,9 +139,11 @@ bool TouchController::handle(QTouchEvent *event)
         if (points.size() == 1) {
             const QPointF point = points.first();
             m_travel += QLineF(point, m_last).length();
-            if (m_state == State::Waiting && QLineF(point, m_start).length() > StartDistance) {
+            if (m_state == State::Waiting) {
+                m_held << point;
                 m_last = point;
-                startDrawing();
+                if (QLineF(point, m_start).length() > StartDistance) startDrawing();
+                return true;
             }
             if (m_state == State::Drawing) {
                 sendMouse(QEvent::MouseMove, point);
@@ -142,6 +160,13 @@ bool TouchController::handle(QTouchEvent *event)
     case QEvent::TouchEnd:
     case QEvent::TouchCancel:
         m_wait.stop();
+        if (m_state == State::Gesture) {
+            m_frame.stop();
+            if (m_pending.size() >= 2) updateGesture(m_pending);
+            // Smooth again now the page stands still.
+            CanvasPainter::setSmoothScaling(true);
+            m_canvas->update();
+        }
         if (m_state == State::Waiting && event->type() == QEvent::TouchEnd) {
             // A quick tap leaves a dot.
             startDrawing();
@@ -173,8 +198,10 @@ void TouchController::startDrawing()
         return;
     }
     m_state = State::Drawing;
+    // The finger's path while it waited is drawn too.
     sendMouse(QEvent::MouseButtonPress, m_start);
-    if (m_last != m_start) sendMouse(QEvent::MouseMove, m_last);
+    for (const QPointF &point : m_held) sendMouse(QEvent::MouseMove, point);
+    m_held.clear();
 }
 
 void TouchController::sendMouse(int type, const QPointF &pos)
@@ -198,7 +225,11 @@ void TouchController::beginGesture(const QList<QPointF> &points)
     m_startRotation = view->rotation();
     m_canvasAnchor = view->mapScreenToCanvas(centre);
     m_last = centre;
+    m_pending.clear();
+    m_held.clear();
     m_state = State::Gesture;
+    // While the page moves, plain scaling keeps up with the fingers.
+    CanvasPainter::setSmoothScaling(false);
 }
 
 void TouchController::updateGesture(const QList<QPointF> &points)
@@ -208,11 +239,18 @@ void TouchController::updateGesture(const QList<QPointF> &points)
     const QPointF b = points.at(1);
     const QPointF centre = (a + b) / 2.0;
 
-    view->scale(m_startScale * QLineF(a, b).length() / m_startDistance);
+    {
+        // One repaint per update: only the last change tells the canvas.
+        const QSignalBlocker quiet(view);
+        view->scale(m_startScale * QLineF(a, b).length() / m_startDistance);
+    }
     qreal rotation = m_startRotation + qRadiansToDegrees(qAtan2(b.y() - a.y(), b.x() - a.x()) - m_startAngle);
     const qreal quarter = qRound(rotation / 90.0) * 90.0;
     if (qAbs(rotation - quarter) < SnapDegrees) rotation = quarter;
-    view->rotate(float(rotation));
+    {
+        const QSignalBlocker quiet(view);
+        view->rotate(float(rotation));
+    }
 
     // The point of the drawing that was under the fingers stays under them.
     const QPointF under = view->mapScreenToCanvas(centre);

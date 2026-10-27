@@ -1058,6 +1058,33 @@ private:
         m_steps << [this]() {
             check(QStringLiteral("a two-finger tap undoes"), paintedPixels() < m_before - 300,
                   QStringLiteral("%1 -> %2 px").arg(m_before).arg(paintedPixels()));
+
+            // Two hands: the first lands and drifts, the second joins later to
+            // turn the page. Nothing may stay drawn.
+            m_before = paintedPixels();
+            auto wait = [](int ms) {
+                QElapsedTimer clock;
+                clock.start();
+                while (clock.elapsed() < ms) QApplication::processEvents(QEventLoop::AllEvents, 10);
+            };
+            touch(QEvent::TouchBegin, {at(-150, 80)}, QEventPoint::Pressed);
+            for (int i = 1; i <= 8; ++i) {
+                wait(50);
+                touch(QEvent::TouchUpdate, {at(-150 + i * 3, 80 + i * 2)}, QEventPoint::Updated);
+            }
+            for (int i = 0; i <= 10; ++i) {
+                const qreal angle = qDegreesToRadians(i * 4.0);
+                touch(QEvent::TouchUpdate, {at(-126, 96), at(-126 + 250 * qCos(angle), 96 + 250 * qSin(angle))},
+                      QEventPoint::Updated);
+                wait(10);
+            }
+            touch(QEvent::TouchEnd, {at(-126, 96), at(124, 96)}, QEventPoint::Released);
+            settle();
+            check(QStringLiteral("turning the page with two hands draws nothing"), qAbs(paintedPixels() - m_before) < 50
+                      && qAbs(editor()->view()->rotation()) > 20,
+                  QStringLiteral("%1 -> %2 px, turned %3 degrees").arg(m_before).arg(paintedPixels())
+                      .arg(editor()->view()->rotation(), 0, 'f', 0));
+            editor()->view()->resetRotation();
             m_core->history()->redo();
             QToolButton *fit = nullptr;
             for (QToolButton *button : canvas()->findChildren<QToolButton *>()) {
