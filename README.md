@@ -1,4 +1,4 @@
-# ArtFlow
+﻿# ArtFlow
 
 A beginner-friendly drawing and animation app for Windows, with three
 modes over one engine:
@@ -51,5 +51,3 @@ Qt. Pencil2D is GPL-2.0-only; ArtFlow's own files (`shell/`,
 `studiocore/`) are GPL-2.0-or-later, so the whole program is distributed
 under the GPL version 2. See [LICENSE.TXT](LICENSE.TXT) and
 [LICENSE.QT.TXT](LICENSE.QT.TXT).
-
-This is a private project.
