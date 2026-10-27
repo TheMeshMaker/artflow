@@ -17,6 +17,7 @@
 #include <QMouseEvent>
 #include <QPointer>
 #include <QPointingDevice>
+#include <QProcess>
 #include <QScrollArea>
 #include <QSettings>
 #include <QToolButton>
@@ -32,6 +33,8 @@
 #include "layer.h"
 #include "layerbitmap.h"
 #include "layercamera.h"
+#include "movieexporter.h"
+#include "util.h"
 #include "layermanager.h"
 #include "mainwindow2.h"
 #include "object.h"
@@ -911,6 +914,46 @@ private:
             QDockWidget *layers = m_shell->window()->findChild<QDockWidget *>(QStringLiteral("ArtFlowLayersDock"));
             check(QStringLiteral("Flip mode shows the layers too"), layers && layers->isVisible());
             screenshot(QStringLiteral("final"));
+        };
+
+        // GIF and MP4 export, when ffmpeg is next to the program
+        m_steps << [this]() {
+            const QString ffmpeg = ffmpegLocation();
+            if (!QFile::exists(ffmpeg)) {
+                log(QStringLiteral("INFO  export skipped: no %1").arg(QDir::toNativeSeparators(ffmpeg)));
+                return;
+            }
+            const std::vector<LayerCamera *> cameras = editor()->object()->getLayersByType<LayerCamera>();
+            ExportMovieDesc desc;
+            desc.startFrame = 1;
+            desc.endFrame = qMax(2, m_core->timeline()->lastUsedFrame());
+            desc.fps = 12;
+            desc.exportSize = QSize(640, 360);
+            desc.strCameraName = cameras.empty() ? QString() : cameras.front()->name();
+
+            for (const QString &format : {QStringLiteral("gif"), QStringLiteral("mp4")}) {
+                desc.strFileName = m_out.absoluteFilePath(QStringLiteral("export.%1").arg(format));
+                desc.loop = format == QLatin1String("gif");
+                MovieExporter exporter;
+                const Status status = exporter.run(editor()->object(), desc, [](float, float) {}, [](float) {}, [](QString) {});
+                QFile file(desc.strFileName);
+                QByteArray head;
+                if (file.open(QIODevice::ReadOnly)) head = file.read(12);
+                const bool looksRight = format == QLatin1String("gif") ? head.startsWith("GIF89a") : head.mid(4, 4) == "ftyp";
+                check(QStringLiteral("exports a %1").arg(format.toUpper()), status.ok() && file.size() > 1000 && looksRight,
+                      QStringLiteral("%1 bytes, %2 frames%3").arg(file.size()).arg(desc.endFrame)
+                          .arg(status.ok() ? QString() : QStringLiteral(", ") + exporter.error()));
+            }
+
+            // ffmpeg reads the whole film back: it plays, and it is H.264.
+            QProcess probe;
+            probe.start(ffmpeg, {QStringLiteral("-hide_banner"), QStringLiteral("-i"), m_out.absoluteFilePath(QStringLiteral("export.mp4")),
+                                 QStringLiteral("-f"), QStringLiteral("null"), QStringLiteral("-")});
+            probe.waitForFinished(60000);
+            const QString report = QString::fromLocal8Bit(probe.readAllStandardError());
+            check(QStringLiteral("the MP4 plays back and is H.264"),
+                  probe.exitStatus() == QProcess::NormalExit && probe.exitCode() == 0 && report.contains(QLatin1String("Video: h264")),
+                  report.section(QLatin1String("Stream #0:0"), 1, 1).section(QLatin1Char('\n'), 0, 0).trimmed().left(120));
         };
     }
 

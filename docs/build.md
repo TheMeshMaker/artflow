@@ -44,6 +44,26 @@ rem plus libc++.dll, libunwind.dll, libwinpthread-1.dll from llvm-mingw\x86_64-w
 `windeployqt --release` fails with "Unable to find the platform plugin" for
 this kit; run it without `--release`.
 
+### FFmpeg for GIF/MP4 export and video import
+
+The engine runs `plugins\ffmpeg.exe` next to `artflow.exe`. Releases bundle
+the gyan.dev "release essentials" build (a GPL build, so MP4s are H.264;
+listed on ffmpeg.org's download page). Only `ffmpeg.exe` and its licence
+are kept:
+
+```powershell
+$d = 'H:\afdev\downloads\ffmpeg-gyan'   # a new, empty folder
+Invoke-WebRequest https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip -OutFile $d\ffmpeg.zip
+Invoke-WebRequest https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip.sha256 -OutFile $d\ffmpeg.zip.sha256
+# compare (Get-FileHash $d\ffmpeg.zip).Hash with the published SHA-256 before unpacking
+# then copy bin\ffmpeg.exe to %DIST%\plugins\ and LICENSE to %DIST%\plugins\ffmpeg-LICENSE.txt
+```
+
+ffmpeg is a separate program that ArtFlow only starts, so it is bundled
+alongside rather than linked in; its own licence (GPL version 3) travels
+with it. With `plugins\ffmpeg.exe` present the self-test also exports a GIF
+and an MP4 and has ffmpeg read the MP4 back.
+
 | Variable | Effect |
 |---|---|
 | `ARTFLOW_MODE=flip\|motion\|studio` | start in that mode (default: the last one used) |
