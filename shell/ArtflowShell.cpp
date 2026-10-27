@@ -569,6 +569,8 @@ void ArtflowShell::fixWindowTitle()
 
     title = title.left(engine).trimmed();
     if (title.endsWith(QLatin1Char('-'))) title.chop(1);
-    title = title.trimmed();
-    m_window->setWindowTitle(title.isEmpty() ? QStringLiteral("ArtFlow") : QStringLiteral("%1 - ArtFlow").arg(title));
+    // "[*]" is Qt's marker for unsaved changes; a new drawing has no name yet.
+    title = title.remove(QLatin1String("[*]")).trimmed();
+    if (title.isEmpty()) title = tr("Untitled");
+    m_window->setWindowTitle(QStringLiteral("%1[*] - ArtFlow").arg(title));
 }

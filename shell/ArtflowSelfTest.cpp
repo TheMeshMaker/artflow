@@ -81,7 +81,7 @@ public:
         log(QStringLiteral("ArtFlow self-test (Pencil2D core), %1").arg(QDateTime::currentDateTime().toString(Qt::ISODate)));
         // Judge the layout the way people see it: maximized.
         m_shell->window()->showMaximized();
-        QTimer::singleShot(1500, this, [this]() { runNext(); });
+        waitForStableWindow(0, QSize());
     }
 
 private:
@@ -113,6 +113,19 @@ private:
     void settle(int rounds = 5)
     {
         for (int i = 0; i < rounds; ++i) QApplication::processEvents(QEventLoop::AllEvents, 40);
+    }
+
+    // Starts the steps once the maximized window has stopped changing size:
+    // strokes drawn while the view still re-centres land in different places.
+    void waitForStableWindow(int tries, const QSize &last)
+    {
+        const QSize size = m_shell->window()->size();
+        if (tries >= 30 || (tries >= 5 && size == last && m_shell->window()->isMaximized())) {
+            log(QStringLiteral("INFO  window %1 x %2 after %3 ms").arg(size.width()).arg(size.height()).arg(tries * 200));
+            runNext();
+            return;
+        }
+        QTimer::singleShot(200, this, [this, tries, size]() { waitForStableWindow(tries + 1, size); });
     }
 
     void runNext()
@@ -238,6 +251,11 @@ private:
     {
         m_steps << [this]() {
             check(QStringLiteral("canvas is up"), canvas() && editor()->object());
+            const QString title = m_shell->window()->windowTitle();
+            check(QStringLiteral("window title names ArtFlow, not the engine"),
+                  title.endsWith(QLatin1String(" - ArtFlow")) && !title.contains(QLatin1String("Pencil2D"))
+                      && !title.startsWith(QLatin1String("[*] -")),
+                  title);
             m_object = editor()->object();
             m_canvas = canvas();
             check(QStringLiteral("starts in a mode"), !m_shell->modes()->currentModeId().isEmpty(),
