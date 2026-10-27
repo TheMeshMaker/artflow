@@ -7,6 +7,7 @@
 #define STUDIOCORE_H
 
 #include <QObject>
+#include <QPointF>
 #include <QPointer>
 
 class ActionCommands;
@@ -14,6 +15,7 @@ class Editor;
 class MainWindow2;
 class ScribbleArea;
 
+class StudioBrushes;
 class StudioHistory;
 class StudioLayers;
 class StudioPenButtons;
@@ -47,6 +49,15 @@ public:
     StudioTimeline *timeline() const;
     StudioPlayback *playback() const;
     StudioPenButtons *penButtons() const;
+    StudioBrushes *brushes() const;
+
+    /// Zooms and centres the view so the whole camera frame fits the canvas.
+    /// Until the view is zoomed or moved by hand, it fits again whenever the
+    /// canvas changes size (maximizing, switching modes) or a document opens.
+    void fitView();
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 Q_SIGNALS:
     /// A new or opened document replaced the current one.
@@ -63,6 +74,11 @@ private:
     StudioTimeline *m_timeline;
     StudioPlayback *m_playback;
     StudioPenButtons *m_penButtons;
+    StudioBrushes *m_brushes;
+
+    bool m_fitted {false};
+    qreal m_fitScale {0.0};
+    QPointF m_fitTranslation;
 };
 
 #endif // STUDIOCORE_H

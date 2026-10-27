@@ -18,15 +18,20 @@
 #include <QPointer>
 #include <QPointingDevice>
 #include <QScrollArea>
+#include <QSettings>
+#include <QToolButton>
+#include <QtMath>
 #include <QTabletEvent>
 #include <QTextStream>
 #include <QTimer>
 #include <QVector>
 
 #include "bitmapimage.h"
+#include "colormanager.h"
 #include "editor.h"
 #include "layer.h"
 #include "layerbitmap.h"
+#include "layercamera.h"
 #include "layermanager.h"
 #include "mainwindow2.h"
 #include "object.h"
@@ -34,7 +39,9 @@
 #include "selectionmanager.h"
 #include "toolmanager.h"
 #include "undoredomanager.h"
+#include "viewmanager.h"
 
+#include "StudioBrushes.h"
 #include "StudioCore.h"
 #include "StudioHistory.h"
 #include "StudioLayers.h"
@@ -45,6 +52,7 @@
 #include "ArtflowShell.h"
 #include "BeginnerShortcuts.h"
 #include "ModeManager.h"
+#include "panels/BrushLibrary.h"
 
 namespace {
 
@@ -79,6 +87,11 @@ public:
     void start()
     {
         log(QStringLiteral("ArtFlow self-test (Pencil2D core), %1").arg(QDateTime::currentDateTime().toString(Qt::ISODate)));
+        // The test picks brush styles and sizes; the person's own come back at the end.
+        QSettings settings(PENCIL2D, PENCIL2D);
+        settings.beginGroup(QStringLiteral("ArtFlowBrushes"));
+        for (const QString &key : settings.allKeys()) m_brushSettings.insert(key, settings.value(key));
+
         // Judge the layout the way people see it: maximized.
         m_shell->window()->showMaximized();
         waitForStableWindow(0, QSize());
@@ -142,6 +155,12 @@ private:
 
     void finish()
     {
+        QSettings settings(PENCIL2D, PENCIL2D);
+        settings.remove(QStringLiteral("ArtFlowBrushes"));
+        settings.beginGroup(QStringLiteral("ArtFlowBrushes"));
+        for (auto it = m_brushSettings.constBegin(); it != m_brushSettings.constEnd(); ++it) settings.setValue(it.key(), it.value());
+        settings.endGroup();
+
         log(QStringLiteral("RESULT  %1 failure(s)").arg(m_failures));
         QFile file(m_out.absoluteFilePath(QStringLiteral("report.txt")));
         if (file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
@@ -187,6 +206,75 @@ private:
         }
         sendTablet(QEvent::TabletRelease, points.last(), 0.0, Qt::LeftButton, Qt::NoButton);
         settle();
+    }
+
+    /// A pen stroke whose pressure changes along the way. Like a real pen
+    /// it hovers over the start first (after a side-button gesture the tip
+    /// only draws again once the pen has hovered).
+    void pressureStroke(const QVector<QPointF> &points, const QVector<qreal> &pressures)
+    {
+        sendTablet(QEvent::TabletMove, points.first(), 0.0, Qt::NoButton, Qt::NoButton);
+        sendTablet(QEvent::TabletPress, points.first(), pressures.first(), Qt::LeftButton, Qt::LeftButton);
+        for (int i = 1; i < points.size(); ++i) {
+            sendTablet(QEvent::TabletMove, points[i], pressures[i], Qt::NoButton, Qt::LeftButton);
+            QApplication::processEvents();
+        }
+        sendTablet(QEvent::TabletRelease, points.last(), 0.0, Qt::LeftButton, Qt::NoButton);
+        settle();
+    }
+
+    /// Back and forth over the same place, \p passes times.
+    QVector<QPointF> zigzag(const QPointF &from, const QPointF &to, int passes) const
+    {
+        QVector<QPointF> points;
+        for (int pass = 0; pass < passes; ++pass) {
+            const QVector<QPointF> leg = pass % 2 ? line(to, from) : line(from, to);
+            points << (pass ? leg.mid(1) : leg);
+        }
+        return points;
+    }
+
+    /// Goes to a new, empty drawing after the current one.
+    void freshFrame()
+    {
+        Layer *layer = editor()->layers()->currentLayer();
+        const int current = editor()->currentFrame();
+        m_core->timeline()->addFrameAfter(layer, current);
+        int next = -1;
+        for (int key : m_core->timeline()->keyframeTimes(layer)) {
+            if (key > current && (next < 0 || key < next)) next = key;
+        }
+        if (next > 0) m_core->timeline()->setCurrentFrame(next);
+    }
+
+    void useStyle(const QString &id)
+    {
+        const BrushPreset preset = m_core->brushes()->preset(id);
+        m_core->tools()->activate(preset.tool == PENCIL ? ToolIntent::Pencil : ToolIntent::Brush);
+        m_core->brushes()->select(id);
+    }
+
+    /// Alpha statistics of the drawing on the current frame.
+    struct AlphaStats {
+        int solid = 0;   ///< alpha 240 and up
+        int edge = 0;    ///< alpha 16 to 239
+        int highest = 0;
+    };
+
+    AlphaStats alphaStats() const
+    {
+        AlphaStats stats;
+        const QImage image = frameImage().convertToFormat(QImage::Format_ARGB32);
+        for (int y = 0; y < image.height(); ++y) {
+            const QRgb *row = reinterpret_cast<const QRgb *>(image.constScanLine(y));
+            for (int x = 0; x < image.width(); ++x) {
+                const int alpha = qAlpha(row[x]);
+                if (alpha >= 240) ++stats.solid;
+                else if (alpha >= 16) ++stats.edge;
+                stats.highest = qMax(stats.highest, alpha);
+            }
+        }
+        return stats;
     }
 
     void mouseStroke(const QVector<QPointF> &points)
@@ -492,6 +580,122 @@ private:
             m_core->tools()->setBrushOpacity(1.0);
             checkToolOptionsFit(QStringLiteral("tool options fit again after trying every tool"));
             screenshot(QStringLiteral("studio-final"));
+        };
+
+        // Brush styles
+        m_steps << [this]() { freshFrame(); };
+        m_steps << [this]() {
+            const std::vector<LayerCamera *> cameras = editor()->object()->getLayersByType<LayerCamera>();
+            const QRect frame = cameras.empty() ? QRect() : cameras.front()->getViewRect();
+            check(QStringLiteral("new drawings are 1920 x 1080"), frame.size() == QSize(1920, 1080),
+                  QStringLiteral("%1 x %2").arg(frame.width()).arg(frame.height()));
+            const QRectF page = editor()->view()->getView().mapRect(QRectF(frame));
+            const QRectF area = QRectF(canvas()->rect());
+            check(QStringLiteral("the whole page fits the window"),
+                  area.contains(page) && (page.width() > 0.8 * area.width() || page.height() > 0.8 * area.height()),
+                  QStringLiteral("page %1 x %2 in a %3 x %4 canvas").arg(qRound(page.width())).arg(qRound(page.height()))
+                      .arg(area.width()).arg(area.height()));
+            editor()->color()->setFrontColor(QColor(Qt::black));
+            m_sampler = 0;
+            m_samplerFailures.clear();
+        };
+        for (const BrushPreset &preset : StudioBrushes::library()) {
+            m_steps << [this, preset]() {
+                useStyle(preset.id);
+                const int index = m_sampler++;
+                const QPointF centre = at(-600 + (index % 4) * 400, -330 + (index / 4) * 220);
+                QVector<QPointF> points;
+                QVector<qreal> pressures;
+                for (int i = 0; i <= 40; ++i) {
+                    const qreal t = i / 40.0;
+                    points << centre + QPointF(-140 + 280 * t, -qSin(t * 2 * M_PI) * 55);
+                    pressures << 0.25 + 0.75 * qSin(t * M_PI);
+                }
+                const int before = paintedPixels();
+                pressureStroke(points, pressures);
+                const int added = paintedPixels() - before;
+                if (added < 100) m_samplerFailures << QStringLiteral("%1 (%2 px)").arg(preset.id).arg(added);
+            };
+        }
+        m_steps << [this]() {
+            check(QStringLiteral("all %1 brush styles paint").arg(StudioBrushes::library().size()),
+                  m_samplerFailures.isEmpty(), m_samplerFailures.join(QStringLiteral(", ")));
+            screenshot(QStringLiteral("brush-sampler"));
+            frameImage().save(m_out.absoluteFilePath(QStringLiteral("brush-sampler-pixels.png")));
+            freshFrame();
+        };
+        m_steps << [this]() {
+            // A thin line, where stair-stepped edges would show the most.
+            useStyle(QStringLiteral("ink-pen"));
+            m_core->tools()->setBrushSize(6);
+            const QVector<QPointF> points = line(at(-300, -100), at(300, 60), 40);
+            pressureStroke(points, QVector<qreal>(points.size(), 0.8));
+        };
+        m_steps << [this]() {
+            const AlphaStats stats = alphaStats();
+            check(QStringLiteral("ink lines have smooth edges, not stairs"), stats.edge > 400 && stats.edge > stats.solid / 3,
+                  QStringLiteral("%1 edge px, %2 solid px").arg(stats.edge).arg(stats.solid));
+            freshFrame();
+        };
+        m_steps << [this]() {
+            useStyle(QStringLiteral("marker"));
+            const QVector<QPointF> points = zigzag(at(-200, 0), at(200, 6), 6);
+            pressureStroke(points, QVector<qreal>(points.size(), 1.0));
+        };
+        m_steps << [this]() {
+            const AlphaStats stats = alphaStats();
+            check(QStringLiteral("a marker stroke does not get darker where it crosses itself"),
+                  stats.highest >= 120 && stats.highest <= 150, QStringLiteral("highest alpha %1").arg(stats.highest));
+            freshFrame();
+        };
+        m_steps << [this]() {
+            useStyle(QStringLiteral("airbrush"));
+            const QVector<QPointF> points = zigzag(at(-150, 0), at(150, 0), 8);
+            pressureStroke(points, QVector<qreal>(points.size(), 1.0));
+        };
+        m_steps << [this]() {
+            const AlphaStats stats = alphaStats();
+            check(QStringLiteral("the airbrush builds up where it passes again"), stats.highest > 60,
+                  QStringLiteral("highest alpha %1").arg(stats.highest));
+
+            QStringList blank;
+            for (const BrushPreset &preset : StudioBrushes::library()) {
+                const QImage sample = StudioBrushes::preview(preset, QSize(180, 48), 1.0, Qt::white);
+                int inked = 0;
+                for (int y = 0; y < sample.height(); ++y) {
+                    for (int x = 0; x < sample.width(); ++x) {
+                        if (qAlpha(sample.pixel(x, y)) > 16) ++inked;
+                    }
+                }
+                if (inked < 40) blank << preset.id;
+            }
+            check(QStringLiteral("every style has a sample stroke in the picker"), blank.isEmpty(), blank.join(QLatin1Char(',')));
+
+            m_core->tools()->activate(ToolIntent::Brush);
+            if (QToolButton *style = m_shell->window()->findChild<QToolButton *>(QStringLiteral("brushStyle"))) style->click();
+        };
+        m_steps << [this]() {
+            BrushLibrary *library = m_shell->window()->findChild<BrushLibrary *>();
+            const int cards = library ? int(library->findChildren<BrushCard *>().size()) : 0;
+            check(QStringLiteral("the brush style button opens the brush picker"), library && library->isVisible() && cards == 11,
+                  QStringLiteral("%1 styles").arg(cards));
+            if (library) {
+                library->grab().save(m_out.absoluteFilePath(QStringLiteral("brush-library.png")));
+                library->close();
+            }
+            m_core->tools()->activate(ToolIntent::Pencil);
+            if (QToolButton *style = m_shell->window()->findChild<QToolButton *>(QStringLiteral("brushStyle"))) style->click();
+        };
+        m_steps << [this]() {
+            BrushLibrary *library = m_shell->window()->findChild<BrushLibrary *>();
+            const int cards = library ? int(library->findChildren<BrushCard *>().size()) : 0;
+            check(QStringLiteral("the Pencil has its own styles"), library && library->isVisible() && cards == 5,
+                  QStringLiteral("%1 styles").arg(cards));
+            if (library) {
+                library->grab().save(m_out.absoluteFilePath(QStringLiteral("pencil-library.png")));
+                library->close();
+            }
+            m_core->tools()->activate(ToolIntent::Brush);
             m_shell->modes()->switchTo(QStringLiteral("flip"));
         };
         m_steps << [this]() { screenshot(QStringLiteral("final")); };
@@ -517,6 +721,9 @@ private:
     int m_frame2Pixels {0};
     int m_penKeys {0};
     int m_mouseBefore {0};
+    int m_sampler {0};
+    QStringList m_samplerFailures;
+    QVariantMap m_brushSettings;
     QString m_penUndoText;
     QString m_redoState;
 };

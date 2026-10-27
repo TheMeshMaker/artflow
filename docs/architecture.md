@@ -25,7 +25,8 @@ shell/   (artflow.exe, artflow-console.exe)
   PenButtonsDialog    actions per side button + "press each button" detection
   ArtflowSelfTest     ARTFLOW_SELFTEST: synthetic input, report + screenshots
   panels/             FrameStripPanel (Flip), TracksPanel (Motion),
-                      LayerStackPanel (Studio), BrushSlidersPanel, TransportBar
+                      LayerStackPanel (Studio), BrushSlidersPanel, TransportBar,
+                      BrushLibrary (the brush picker)
       |
 studiocore/   facade over the engine (compiled into the same program)
   StudioCore          owns the facades; wraps MainWindow2::mEditor + ActionCommands
@@ -38,6 +39,9 @@ studiocore/   facade over the engine (compiled into the same program)
   StudioTimelineModel QAbstractTableModel, rows = layers, column c = frame c+1
   StudioPlayback      PlaybackManager play/stop, ActionCommands goto next/prev
   StudioPenButtons    native WM_POINTER filter + application event filter
+  StudioBrushes       brush library (16 styles), style per tool, sizes per style;
+                      installed as the core's BitmapBrushEngine
+  BrushStroke         renders one stroke: curve, dabs, coverage mask, grain
       |
 app/       Pencil2D's MainWindow2, docks (ColorWheel, ColorPalette, ToolOption,
            TimeLine...), dialogs, ActionCommands (reused as is)
@@ -125,6 +129,42 @@ something cool and sleek. The redesign lives entirely in `shell/`:
   (`ColorPaletteViewMode`, `PreferredColorGridSize` = 28), once, so a
   later change in the preferences sticks.
 
+## Brushes
+
+The user found drawing "bland… not smooth… no brush styles… pixely".
+Three causes, three fixes:
+
+* **Pixely:** new drawings were 800 x 600 bitmaps blown up 1.5 x on a
+  150 % screen with square pixels. Defaults version 3 makes new drawings
+  1920 x 1080; `CanvasPainter::setSmoothScaling(true)` scales them
+  smoothly (square pixels only above 400 % zoom, to inspect pixels); and
+  `StudioCore::fitView()` fits the page to the window, again whenever the
+  canvas changes size, until the view is zoomed or moved by hand.
+* **Not smooth:** the engine joined pointer positions with straight lines
+  of half-transparent dabs, one pressure per event. ArtFlow's own engine
+  (`BrushStroke`) joins them with a centripetal Catmull-Rom curve, blends
+  pressure along it, lays dabs at an even spacing with an anti-aliased
+  (or soft) edge, and collects them in a coverage mask for the whole
+  stroke, so a stroke does not get darker where its own dabs overlap
+  (unless the brush builds up, like the airbrush). With a mouse, inking
+  styles thin out with speed instead of pressure. The patches it hands
+  back replace the same area of the stroke buffer; undo, commit and the
+  eraser's cut-out work as before.
+* **No styles:** 16 curated styles, original names. Pencil tool:
+  Pencil, Soft Pencil, Clean Line, Charcoal, Crayon. Brush tool: Ink Pen,
+  Fine Liner, Brush Pen, Calligraphy (inking); Round Brush, Soft Brush,
+  Marker, Flat Paint, Watercolor (painting); Airbrush, Spray Can
+  (effects). A style is a `BrushPreset`: hardness, spacing, flow, build-up,
+  pressure to size and opacity, paper grain (tileable noise anchored to
+  the canvas; light strokes catch only the ridges), flat-nib roundness and
+  angle, jitter, scatter, spray particles, start taper. Each style
+  remembers its own size. The picker (`BrushLibrary`) opens from the
+  style button at the top of the left rail, or by clicking the chosen
+  Brush or Pencil again; every card shows a sample stroke drawn by the
+  engine itself. The eraser uses the same engine with a fixed round tip.
+  Feather and anti-aliasing switches are hidden for these tools, since
+  the styles shape their own edges.
+
 ## Krita-lite request vs this base
 
 | Requested | Status |
@@ -133,8 +173,8 @@ something cool and sleek. The redesign lives entirely in `shell/`:
 | Lasso, shapes, text | not in the engine; Phase 2 |
 | Layers: paint, vector, group; blend modes; clipping | bitmap, vector, camera, sound layers; no groups, blend modes or clipping yet |
 | A few filters | none in the engine; Phase 2 |
-| Simple brush editor | engine tool options panel (width, feather, stabilizer, pressure) plus ArtFlow's size/opacity sliders |
-| Curated 20–30 brushes | the engine has tools, not preset libraries; Phase 2 |
+| Simple brush editor | ArtFlow's size/opacity sliders plus the engine panel (width, stabilizer, pressure) |
+| Curated 20–30 brushes | 16 styles in ArtFlow's own brush engine, with a picker that shows a sample stroke of each |
 | Beginner shortcuts with tooltips and a cheat sheet | done |
 | On-screen undo/redo and size/opacity sliders | done |
 | Touch: pinch, two-finger undo, three-finger redo | not in the engine; Phase 2 |
@@ -142,13 +182,18 @@ something cool and sleek. The redesign lives entirely in `shell/`:
 
 ## Self-test
 
-42 of 42 checks pass (`H:\afdev\selftest\ui-run14\report.txt`): window
+51 of 51 checks pass (`H:\afdev\selftest\brush-run5\report.txt`): window
 title, brush with pressure 0.7 and tilt, eraser, fill + undo, selection, mode round
 trip, Motion's camera tool, new/duplicate/delete frame, every pen-button
 check (undo, redo, bounce, no stroke, no menu, eraser events blocked), the
 key map, all 9 Studio tools, mouse drawing, size and opacity sliders, and
 the tool options fitting without a scroll bar (before and after trying
-every tool). The self-test maximizes the window and waits until its size
+every tool), and the brushes: 1920 x 1080 pages that fit the window,
+every style painting a pressure stroke (`brush-sampler.png`), smooth ink
+edges, a marker that does not darken over itself, an airbrush that
+builds up, a sample stroke for every style, and both pickers opening
+(`brush-library.png`, `pencil-library.png`). The test keeps the person's
+brush settings and puts them back at the end. The self-test maximizes the window and waits until its size
 stops changing before the first stroke, and saves screenshots of every
 mode next to the report.
 

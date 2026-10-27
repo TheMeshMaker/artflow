@@ -71,6 +71,11 @@ The one launch of stock `pencil2d.exe` during set-up created
 | `core_lib/src/util/pencildef.h` | `#ifndef PENCIL2D` guard around the settings name |
 | `CMakeLists.txt` | `BUILD_ARTFLOW` option that includes `shell/shell.cmake` |
 | `core_lib/src/camerapainter.h/.cpp` | `CameraPainter::setOutsideShade()`: the shade outside the camera frame can be chosen (default unchanged) |
+| `core_lib/src/tool/bitmapbrushengine.h` (new), `core_lib.cmake`, `core_lib.pro` | `BitmapBrushEngine`: a pluggable renderer for bitmap brush, pencil and eraser strokes (none installed = Pencil2D's own dabs) |
+| `core_lib/src/tool/stroketool.h/.cpp`, `brushtool.cpp`, `penciltool.cpp`, `erasertool.cpp` | hand the stroke to the installed brush engine and lay its patches into the stroke buffer |
+| `core_lib/src/interface/scribblearea.h/.cpp` | `ScribbleArea::drawStrokePatch()`: lays a rendered piece of a stroke into the stroke buffer |
+| `core_lib/src/graphics/bitmap/tiledbuffer.cpp` | `drawImage()` touches only the tiles the image covers (it allocated a margin of a whole image on each side) |
+| `core_lib/src/canvaspainter.h/.cpp` | `CanvasPainter::setSmoothScaling()`: bitmap layers scale smoothly below 400 % zoom (default off) |
 
 Everything else under `core_lib/` and `app/` is untouched; ArtFlow's code
 is in `studiocore/` and `shell/`.

@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
     {
         // ArtFlow's own defaults, applied once per version so a later change
         // in the preferences sticks.
-        const int DefaultsVersion = 2;
+        const int DefaultsVersion = 3;
         QSettings settings(PENCIL2D, PENCIL2D);
         const int applied = settings.value(QStringLiteral("ArtFlowDefaultsVersion")).toInt();
         if (applied < 1) {
@@ -68,6 +68,12 @@ int main(int argc, char *argv[])
             // The palette as a grid of swatches rather than a list of names.
             settings.setValue(QStringLiteral("ColorPaletteViewMode"), QStringLiteral("GridMode"));
             settings.setValue(QStringLiteral("PreferredColorGridSize"), 28);
+        }
+        if (applied < 3) {
+            // New drawings are HD (1920 x 1080) rather than 800 x 600, so lines
+            // stay crisp on today's screens.
+            settings.setValue(QStringLiteral("FieldW"), 1920);
+            settings.setValue(QStringLiteral("FieldH"), 1080);
         }
         if (applied < DefaultsVersion) {
             settings.setValue(QStringLiteral("ArtFlowDefaultsVersion"), DefaultsVersion);

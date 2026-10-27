@@ -7,12 +7,15 @@
 
 #include <cmath>
 
+#include <QToolButton>
 #include <QVBoxLayout>
 
+#include "StudioBrushes.h"
 #include "StudioCore.h"
 #include "StudioTools.h"
 
 #include "ArtflowIcons.h"
+#include "ArtflowTheme.h"
 #include "ShellControls.h"
 
 namespace {
@@ -45,6 +48,15 @@ BrushSlidersPanel::BrushSlidersPanel(StudioCore *core, QWidget *parent)
     layout->setContentsMargins(10, 14, 10, 14);
     layout->setSpacing(18);
 
+    // The current style as a little stroke; it opens the brush picker.
+    m_style = new QToolButton(this);
+    m_style->setObjectName(QStringLiteral("brushStyle"));
+    m_style->setFixedSize(44, 44);
+    m_style->setIconSize(QSize(36, 36));
+    m_style->setCursor(Qt::PointingHandCursor);
+    connect(m_style, &QToolButton::clicked, this, [this]() { Q_EMIT brushStylesRequested(m_style); });
+    layout->addWidget(m_style, 0, Qt::AlignHCenter);
+
     m_size = new PillSlider(this);
     m_size->setRange(0, SliderSteps);
     m_size->setIcon(ArtflowIcons::icon(QStringLiteral("size")));
@@ -69,9 +81,29 @@ BrushSlidersPanel::BrushSlidersPanel(StudioCore *core, QWidget *parent)
         m_core->tools()->setBrushOpacity(value / 100.0);
     });
     connect(core->tools(), &StudioTools::brushChanged, this, &BrushSlidersPanel::slotBrushChanged);
+    connect(core->tools(), &StudioTools::intentChanged, this, &BrushSlidersPanel::slotStyleChanged);
+    connect(core->brushes(), &StudioBrushes::presetChanged, this, &BrushSlidersPanel::slotStyleChanged);
 
     setFixedWidth(62);
     slotBrushChanged();
+    slotStyleChanged();
+}
+
+void BrushSlidersPanel::slotStyleChanged()
+{
+    const ToolIntent intent = m_core->tools()->currentIntent();
+    const bool styled = intent == ToolIntent::Brush || intent == ToolIntent::Pencil;
+    m_style->setEnabled(styled);
+    if (!styled) {
+        m_style->setIcon(QIcon());
+        m_style->setToolTip(QString());
+        return;
+    }
+
+    const BrushPreset preset = m_core->brushes()->current(intent == ToolIntent::Pencil ? PENCIL : BRUSH);
+    const QImage sample = StudioBrushes::preview(preset, m_style->iconSize(), devicePixelRatioF(), ArtflowTheme::text(), true);
+    m_style->setIcon(QIcon(QPixmap::fromImage(sample)));
+    m_style->setToolTip(tr("%1: click for more styles").arg(preset.name));
 }
 
 void BrushSlidersPanel::slotBrushChanged()

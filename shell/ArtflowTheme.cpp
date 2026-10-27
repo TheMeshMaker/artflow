@@ -40,6 +40,9 @@ QToolButton::menu-indicator { image: none; width: 0; }
 QToolButton#toolTile { min-width: 38px; max-width: 38px; min-height: 38px; max-height: 38px; padding: 0; }
 QToolButton#iconButton { min-width: 36px; min-height: 36px; padding: 0; }
 QToolButton#pillButton { border-radius: 9px; padding: 5px 10px; background: @raised; color: @muted; }
+QToolButton#brushStyle { background: @raised; border: 1px solid @line; border-radius: 12px; padding: 0; }
+QToolButton#brushStyle:hover { background: @hover; border-color: #3a4150; }
+QToolButton#brushStyle:disabled { background: transparent; border-color: @raised; }
 QToolButton#pillButton:hover { background: @hover; color: @text; }
 QToolButton#pillButton:checked { background: @accentSoft; color: @accentHover; }
 

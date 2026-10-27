@@ -19,6 +19,7 @@ class QStackedWidget;
 class QToolBar;
 class QToolButton;
 class QWidget;
+class BrushLibrary;
 class MainWindow2;
 class ModeManager;
 class ModeSwitch;
@@ -66,6 +67,7 @@ private:
     void rebuildToolStrip();
     void populateMenu();
     void arrangeRightColumn(int width);
+    void showBrushLibrary(QWidget *anchor, bool below);
     QList<QDockWidget *> rightColumn() const;
 
 private:
@@ -88,6 +90,7 @@ private:
     QHash<QString, QWidget *> m_timelinePanels;
     QDockWidget *m_layersDock {nullptr};
     QDockWidget *m_brushDock {nullptr};
+    BrushLibrary *m_brushLibrary {nullptr};
 };
 
 #endif // ARTFLOW_SHELL_H

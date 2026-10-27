@@ -24,7 +24,14 @@
 #include <QToolButton>
 
 #include "backgroundwidget.h"
+#include "basetool.h"
+#include "bitmapbrushengine.h"
 #include "camerapainter.h"
+#include "canvaspainter.h"
+#include "editor.h"
+#include "layer.h"
+#include "layermanager.h"
+#include "toolmanager.h"
 #include "mainwindow2.h"
 #include "pencildef.h"
 
@@ -38,6 +45,7 @@
 #include "BeginnerShortcuts.h"
 #include "ModeManager.h"
 #include "PenButtonsDialog.h"
+#include "panels/BrushLibrary.h"
 #include "panels/BrushSlidersPanel.h"
 #include "panels/LayerStackPanel.h"
 #include "panels/ShellControls.h"
@@ -139,6 +147,11 @@ ArtflowShell::ArtflowShell(MainWindow2 *window, QObject *parent)
 
     // The engine names the window after itself; keep ArtFlow's name.
     connect(window, &QWidget::windowTitleChanged, this, &ArtflowShell::fixWindowTitle);
+
+    // The engine shows its option rows again for every tool and layer change.
+    connect(m_core->editor()->layers(), &LayerManager::currentLayerChanged, this, [this]() {
+        QTimer::singleShot(0, this, &ArtflowShell::fitToolOptions);
+    });
 }
 
 ArtflowShell::~ArtflowShell()
@@ -182,6 +195,8 @@ void ArtflowShell::start(const QString &modeId)
     QColor surround = ArtflowTheme::canvasSurround();
     surround.setAlpha(238);
     CameraPainter::setOutsideShade(surround);
+    // Drawings scale smoothly instead of in square pixels.
+    CanvasPainter::setSmoothScaling(true);
     if (BackgroundWidget *background = m_window->findChild<BackgroundWidget *>()) {
         background->setStyleSheet(QStringLiteral("BackgroundWidget { background-color: white; border: none; }"));
     }
@@ -290,7 +305,11 @@ void ArtflowShell::buildDocks()
     LayerStackPanel *layers = new LayerStackPanel(m_core, m_model);
     connect(layers, &LayerStackPanel::heightLimitChanged, this, &ArtflowShell::resizeRightColumn);
     m_layersDock = makeDock(tr("Layers"), "ArtFlowLayersDock", layers, Qt::RightDockWidgetArea);
-    m_brushDock = makeDock(tr("Brush"), "ArtFlowBrushDock", new BrushSlidersPanel(m_core), Qt::LeftDockWidgetArea);
+    BrushSlidersPanel *sliders = new BrushSlidersPanel(m_core);
+    connect(sliders, &BrushSlidersPanel::brushStylesRequested, this, [this](QWidget *anchor) {
+        showBrushLibrary(anchor, false);
+    });
+    m_brushDock = makeDock(tr("Brush"), "ArtFlowBrushDock", sliders, Qt::LeftDockWidgetArea);
 }
 
 void ArtflowShell::buildActions()
@@ -340,16 +359,26 @@ void ArtflowShell::rebuildToolStrip()
     for (ToolIntent intent : mode->tools) {
         const ToolIntentInfo info = StudioTools::info(intent);
 
+        const bool styled = intent == ToolIntent::Brush || intent == ToolIntent::Pencil;
         QToolButton *button = new QToolButton(m_toolStrip);
         button->setObjectName(QStringLiteral("toolTile"));
         button->setIcon(ArtflowIcons::icon(info.icon));
-        button->setToolTip(withKeys(info.label, QKeySequence(info.shortcut).toString(QKeySequence::NativeText)));
+        const QString tip = withKeys(info.label, QKeySequence(info.shortcut).toString(QKeySequence::NativeText));
+        button->setToolTip(styled ? tr("%1\nClick again for brush styles").arg(tip) : tip);
         button->setCheckable(true);
         button->setToolButtonStyle(Qt::ToolButtonIconOnly);
         button->setIconSize(QSize(22, 22));
         button->setCursor(Qt::PointingHandCursor);
         button->setProperty("artflowIntent", int(intent));
-        connect(button, &QToolButton::clicked, this, [this, intent]() { m_core->tools()->activate(intent); });
+        // A second click on the chosen brush or pencil opens its styles.
+        connect(button, &QToolButton::pressed, this, [this, button, intent]() {
+            button->setProperty("artflowWasCurrent", m_core->tools()->currentIntent() == intent);
+        });
+        connect(button, &QToolButton::clicked, this, [this, button, intent, styled]() {
+            const bool again = button->property("artflowWasCurrent").toBool();
+            m_core->tools()->activate(intent);
+            if (styled && again) showBrushLibrary(button, true);
+        });
 
         m_toolButtons->addButton(button);
         m_toolStripLayout->addWidget(button);
@@ -529,6 +558,17 @@ void ArtflowShell::resizeRightColumn()
     if (!column.isEmpty()) m_window->resizeDocks(column, heights, Qt::Vertical);
 }
 
+void ArtflowShell::showBrushLibrary(QWidget *anchor, bool below)
+{
+    const ToolIntent intent = m_core->tools()->currentIntent();
+    if (intent != ToolIntent::Brush && intent != ToolIntent::Pencil) return;
+
+    if (!m_brushLibrary) m_brushLibrary = new BrushLibrary(m_core, m_window);
+    const QPoint pos = below ? anchor->mapToGlobal(QPoint(0, anchor->height() + 8))
+                             : anchor->mapToGlobal(QPoint(anchor->width() + 10, 0));
+    m_brushLibrary->popup(intent == ToolIntent::Pencil ? PENCIL : BRUSH, pos);
+}
+
 void ArtflowShell::fitToolOptions()
 {
     // The tool options are as tall as the current tool needs, and no taller.
@@ -536,6 +576,17 @@ void ArtflowShell::fitToolOptions()
     QWidget *content = dock ? dock->widget() : nullptr;
     QWidget *options = dock ? dock->findChild<QWidget *>(QStringLiteral("scrollAreaWidgetContents")) : nullptr;
     if (!content || !options) return;
+
+    // ArtFlow's brush engine shapes the edges itself: the engine's feather
+    // and anti-aliasing switches do nothing for it on drawing layers.
+    BaseTool *tool = m_core->editor()->tools()->currentTool();
+    Layer *layer = m_core->editor()->layers()->currentLayer();
+    BitmapBrushEngine *engine = BitmapBrushEngine::engine();
+    if (tool && layer && layer->type() == Layer::BITMAP && engine && engine->handles(tool->type())) {
+        for (const char *name : {"featherSlider", "featherSpinBox", "useFeatherBox", "useAABox"}) {
+            if (QWidget *row = dock->findChild<QWidget *>(QLatin1String(name))) row->hide();
+        }
+    }
 
     int height = options->sizeHint().height() + 6;
     if (content->layout()) {
