@@ -1,60 +1,55 @@
-[![Build & Tests](https://github.com/pencil2d/pencil/actions/workflows/ci.yml/badge.svg)](https://github.com/pencil2d/pencil/actions/workflows/ci.yml)
+# ArtFlow
 
-# Pencil2D Animation
+A beginner-friendly drawing and animation app for Windows, with three
+modes over one engine:
 
-**Pencil2D** is a free and open source animation/drawing software for Windows, macOS, Linux, and FreeBSD. It lets you create traditional hand-drawn animation (cartoon) using both bitmap and vector graphics.
+* **Flip**: frame-by-frame animation. Draw a frame, add the next one,
+  flip through them with onion skin and frame thumbnails.
+* **Motion**: tracks and keyframes. Move, zoom and turn the camera over
+  time, with every layer as a track.
+* **Studio**: drawing and painting with layers, brushes and colours.
 
-Pencil2D is a community-driven project developed entirely by volunteers and we are always looking for more helping hands! There are many different ways to contribute, so anyone can help regardless of their background. For more information, please see the [Contributing](#contributing) section below.
+## What is inside
 
-Don’t forget to check out our official website: <https://www.pencil2d.org/>
+* **A smooth brush engine** with 16 styles. Pencil tool: Pencil, Soft
+  Pencil, Clean Line, Charcoal and Crayon. Brush tool: Ink Pen, Fine Liner,
+  Brush Pen, Calligraphy, Round Brush, Soft Brush, Marker, Flat Paint,
+  Watercolor, Airbrush and Spray Can. Strokes follow a curve, pressure
+  blends along it, edges are smooth and paper grain stays on the page. Each
+  style remembers its own size.
+* **Tools:** Brush, Pencil, Eraser, Smudge, Fill, Lasso Fill, Picker,
+  Select, Move, Shapes (line, rectangle, ellipse, filled or not), Text and
+  Camera.
+* **Symmetry** drawing and **Adjust** (hue, saturation, brightness,
+  contrast, blur, invert, black & white).
+* **Layers** in every mode: thumbnails, rename, drag to reorder,
+  duplicate, hide and layer opacity.
+* **Pen side buttons** (made for the ASUS Pen 2.0): upper = Redo,
+  lower = Undo, remappable with a "press each button" step.
+* **Few, familiar keys:** B brush, N pencil, E eraser, G fill, L lasso
+  fill, I picker, M select, V move, U shapes, T text, C camera, [ ] brush
+  size, Ctrl+Z / Ctrl+Y, Space+drag to pan, the wheel to zoom, F1 or ? for
+  the full list.
 
-### User Showcase
+## Running it
 
-[![2022 User Showcase](http://img.youtube.com/vi/ma52j9B1kEM/hqdefault.jpg)](https://www.youtube.com/watch?v=ma52j9B1kEM)
+Download the zip from the latest release, unpack it anywhere and start
+`artflow.exe`. Nothing is installed; settings live under
+`HKEY_CURRENT_USER\Software\ArtFlow`.
 
-_User Showcase Reel 2022_
+## Building
 
-## Download
+See [docs/build.md](docs/build.md) (Qt 6.8 with llvm-mingw, CMake and
+Ninja) and [docs/architecture.md](docs/architecture.md) for how the
+pieces fit. `ARTFLOW_SELFTEST=<folder>` runs the built-in self-test.
 
-Download Pencil2D from the [Official Website][p2d-download] or [Github releases][gh-release].
+## Credits and licence
 
-[p2d-download]: https://www.pencil2d.org/download/
-[gh-release]: https://github.com/pencil2d/pencil/releases
+ArtFlow is built on [Pencil2D](https://www.pencil2d.org/) (its original
+README is in [docs/pencil2d-README.md](docs/pencil2d-README.md)) and on
+Qt. Pencil2D is GPL-2.0-only; ArtFlow's own files (`shell/`,
+`studiocore/`) are GPL-2.0-or-later, so the whole program is distributed
+under the GPL version 2. See [LICENSE.TXT](LICENSE.TXT) and
+[LICENSE.QT.TXT](LICENSE.QT.TXT).
 
-### Nightly Builds
-
-Nightly builds are bleeding-edge versions of Pencil2D that include the most recent fixes and features. They are not as stable as the official releases, but they are a great way to test the latest features and help us find bugs.
-
-[Download Nightly Buildls](https://www.pencil2d.org/download/nightly/)
-
-## Using Pencil2D
-
-Pencil2D includes a Quick Reference to help you familiarise yourself with the tools and functions available. You can access it through the main menu: Help > Quick Reference Guide.
-
-We encourage you to visit our [User Manual][user-man] for a quick guide for novice users, then play around with the program – it's fun!
-
-[user-man]: https://www.pencil2d.org/doc/user-manual.html
-
-After you feel a little more comfortable with the basics, check out these [tutorials][pencil-tutorials] provided by Pencil developers and users. While some of these resources might reference previous versions of Pencil2D, the underlying concepts are still the same.
-
-[pencil-tutorials]: https://www.pencil2d.org/doc/tutorials.html
-
-If you encounter difficulty or have additional questions, we have a large community of users who are glad to help out. View the [FAQ][p2d-faq] on our website or visit our [discussion forums][p2d-discussion] to post a new question.
-
-[p2d-faq]: https://www.pencil2d.org/doc/faq.html
-[p2d-discussion]: https://discuss.pencil2d.org/c/support/5
-
-## Contributing
-
-Interested in contributing to Pencil2D? There are many ways to help. Take a look at our issues and see what you can help out with, check out the developer guide, or help out with making Pencil2D available to more people by contributing to translation.
-
-* [Issue Tracker](https://github.com/pencil2d/pencil/issues) - Report bugs or request features.
-* [Developer Guide](https://dev.pencil2d.org/) - Learn how to compile Pencil2D yourself.
-* [Transifex](https://www.transifex.com/pencil2d/) - You can help translate Pencil2D, too.
-* [Documentation contributions](https://www.pencil2d.org/doc/CONTRIBUTING) - Contributing to documentation.
-
-## Source Code
-
-* GitHub: <https://github.com/pencil2d/pencil> (Primary)
-* Bitbucket: <https://bitbucket.org/chchwy/pencil2d> (Mirror)
-* GitLab: <https://gitlab.com/chchwy/pencil2d> (Mirror 2)
+This is a private project.
