@@ -24,6 +24,9 @@ GNU General Public License for more details.
 #include "editor.h"
 #include "toolmanager.h"
 #include "mathutils.h"
+#include "layermanager.h"
+#include "colormanager.h"
+#include "layer.h"
 
 #include "canvascursorpainter.h"
 
@@ -215,6 +218,44 @@ void StrokeTool::endStroke()
     mScribbleArea->endStroke();
 
     mEditor->undoRedo()->record(mUndoSaveStateId, typeName());
+}
+
+bool StrokeTool::brushEngineBegin(PointerEvent::InputType inputType)
+{
+    BitmapBrushEngine* engine = BitmapBrushEngine::engine();
+    Layer* layer = mEditor->layers()->currentLayer();
+    mBrushEngineStroke = engine && layer && layer->type() == Layer::BITMAP && engine->handles(type());
+    if (!mBrushEngineStroke) { return false; }
+
+    BitmapBrushEngine::StrokeStart start;
+    start.tool = type();
+    start.color = mEditor->color()->frontColor();
+    start.width = strokeToolProperties().width();
+    start.pressureEnabled = strokeToolProperties().pressureEnabled();
+    start.tablet = inputType == PointerEvent::Tablet;
+    layBrushPatches(engine->beginStroke(start, getCurrentPoint(), mInterpolator.getPressure()));
+    return true;
+}
+
+void StrokeTool::brushEngineMove()
+{
+    if (!mBrushEngineStroke) { return; }
+    layBrushPatches(BitmapBrushEngine::engine()->strokeTo(getCurrentPoint(), mInterpolator.getPressure()));
+}
+
+void StrokeTool::brushEngineEnd()
+{
+    if (!mBrushEngineStroke) { return; }
+    mBrushEngineStroke = false;
+    layBrushPatches(BitmapBrushEngine::engine()->endStroke());
+}
+
+void StrokeTool::layBrushPatches(const QVector<BitmapBrushEngine::Patch>& patches)
+{
+    for (const BitmapBrushEngine::Patch& patch : patches)
+    {
+        mScribbleArea->drawStrokePatch(patch.image, patch.topLeft, patch.mode);
+    }
 }
 
 void StrokeTool::drawStroke()

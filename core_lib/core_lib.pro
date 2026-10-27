@@ -90,6 +90,7 @@ HEADERS +=  \
     src/tool/smudgetool.h \
     src/tool/strokeinterpolator.h \
     src/tool/stroketool.h \
+    src/tool/bitmapbrushengine.h \
     src/tool/toolproperties.h \
     src/tool/transformtool.h \
     src/util/autosaverbytime.h \

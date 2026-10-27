@@ -97,14 +97,14 @@ void TiledBuffer::drawBrush(QPointF point, qreal brushWidth, QPen pen, QBrush br
 }
 
 void TiledBuffer::drawImage(const QImage& image, const QRect& imageBounds, QPainter::CompositionMode cm, bool antialiasing) {
+    Q_UNUSED(image)
     const float tileSize = UNIFORM_TILE_SIZE;
-    const float imageXRad = image.width();
-    const float imageYRad = image.height();
-    // Gather the number of tiles that fits the size of the brush width
-    const int xLeft = qFloor((qFloor(imageBounds.left() - imageXRad)) / tileSize);
-    const int xRight = qFloor((qFloor(imageBounds.right() + imageXRad)) / tileSize);
-    const int yTop = qFloor(qFloor(imageBounds.top() - imageYRad) / tileSize);
-    const int yBottom = qFloor(qFloor(imageBounds.bottom() + imageYRad) / tileSize);
+    // Only the tiles the image covers (a margin of a whole image on each
+    // side used to allocate up to nine times as many empty tiles).
+    const int xLeft = qFloor(imageBounds.left() / tileSize);
+    const int xRight = qFloor(imageBounds.right() / tileSize);
+    const int yTop = qFloor(imageBounds.top() / tileSize);
+    const int yBottom = qFloor(imageBounds.bottom() / tileSize);
 
     for (int tileY = yTop; tileY <= yBottom; tileY++) {
         for (int tileX = xLeft; tileX <= xRight; tileX++) {

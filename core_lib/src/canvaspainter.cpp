@@ -124,9 +124,22 @@ void CanvasPainter::resetLayerCache()
     mPostLayersPixmapCacheValid = false;
 }
 
+namespace {
+bool gSmoothScaling = false;
+}
+
+void CanvasPainter::setSmoothScaling(bool smooth)
+{
+    gSmoothScaling = smooth;
+}
+
 void CanvasPainter::initializePainter(QPainter& painter, QPaintDevice& device, const QRect& blitRect)
 {
     painter.begin(&device);
+
+    // Below 400 % a drawing reads as a drawing; above it, as pixels.
+    const qreal zoom = qSqrt(qAbs(mViewTransform.determinant()));
+    painter.setRenderHint(QPainter::SmoothPixmapTransform, gSmoothScaling && zoom < 4.0);
 
     // Only draw inside the clipped rectangle
     painter.setClipRect(blitRect);

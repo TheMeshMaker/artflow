@@ -105,6 +105,7 @@ void BrushTool::pointerPressEvent(PointerEvent *event)
     mLastBrushPoint = getCurrentPoint();
 
     startStroke(event->inputType());
+    brushEngineBegin(event->inputType());
 
     StrokeTool::pointerPressEvent(event);
 }
@@ -142,7 +143,12 @@ void BrushTool::pointerReleaseEvent(PointerEvent *event)
     mEditor->backup(typeName());
 
     qreal distance = QLineF(getCurrentPoint(), mMouseDownPoint).length();
-    if (distance < 1)
+    if (mBrushEngineStroke)
+    {
+        drawStroke();
+        brushEngineEnd();
+    }
+    else if (distance < 1)
     {
         paintAt(mMouseDownPoint);
     }
@@ -188,7 +194,11 @@ void BrushTool::drawStroke()
 
     Layer* layer = mEditor->layers()->currentLayer();
 
-    if (layer->type() == Layer::BITMAP)
+    if (layer->type() == Layer::BITMAP && mBrushEngineStroke)
+    {
+        brushEngineMove();
+    }
+    else if (layer->type() == Layer::BITMAP)
     {
         qreal pressure = (mSettings.pressureEnabled()) ? mCurrentPressure : 1.0;
         qreal opacity = (mSettings.pressureEnabled()) ? (mCurrentPressure * 0.5) : 1.0;

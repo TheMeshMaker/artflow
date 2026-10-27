@@ -58,6 +58,11 @@ public:
     virtual ~CanvasPainter();
 
     void reset();
+
+    /// Draw bitmap layers with smooth (bilinear) scaling instead of square
+    /// pixels, except when zoomed in far enough to inspect single pixels.
+    /// Off by default.
+    static void setSmoothScaling(bool smooth);
     void setViewTransform(const QTransform view, const QTransform viewInverse);
 
     void setOnionSkinOptions(const OnionSkinPainterOptions& onionSkinOptions) { mOnionSkinPainterOptions = onionSkinOptions;}

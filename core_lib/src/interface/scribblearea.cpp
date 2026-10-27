@@ -1195,6 +1195,12 @@ void ScribbleArea::drawBrush(QPointF thePoint, qreal brushWidth, qreal mOffset, 
     mTiledBuffer.drawBrush(thePoint, brushWidth, Qt::NoPen, brush, compMode, useAA);
 }
 
+void ScribbleArea::drawStrokePatch(const QImage& image, const QPoint& topLeft, QPainter::CompositionMode compMode)
+{
+    if (image.isNull()) { return; }
+    mTiledBuffer.drawImage(image, QRect(topLeft, image.size()), compMode, false);
+}
+
 void ScribbleArea::drawPolyline(QPainterPath path, QPen pen, bool useAA)
 {
     BlitRect blitRect;

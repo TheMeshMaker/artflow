@@ -76,6 +76,7 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/smudgetool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokeinterpolator.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/stroketool.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/bitmapbrushengine.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/toolproperties.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/transformtool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/autosaverbytime.h

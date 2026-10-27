@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include "pointerevent.h"
 #include "preferencesdef.h"
 #include "strokeinterpolator.h"
+#include "bitmapbrushengine.h"
 #include "undoredomanager.h"
 
 #include "canvascursorpainter.h"
@@ -118,6 +119,14 @@ protected:
     virtual bool emptyFrameActionEnabled();
 
     bool mCanvasCursorEnabled = false;
+
+    /// When a brush engine is installed (see BitmapBrushEngine) and draws
+    /// this tool's strokes on the current layer, it renders the stroke
+    /// instead of the tool's own dabs. Returns whether it does.
+    bool brushEngineBegin(PointerEvent::InputType inputType);
+    void brushEngineMove();
+    void brushEngineEnd();
+    bool mBrushEngineStroke = false;
     QPointF mLastPixel { 0, 0 };
 
     StrokeInterpolator mInterpolator;
@@ -128,6 +137,8 @@ protected:
     static const qreal WIDTH_MAX;
 
 private:
+    void layBrushPatches(const QVector<BitmapBrushEngine::Patch>& patches);
+
     CanvasCursorPainter mWidthCursorPainter;
     CanvasCursorPainter mFeatherCursorPainter;
 
