@@ -39,6 +39,9 @@ class CameraPainter
 public:
     explicit CameraPainter(QPixmap& canvas);
 
+    /// Colour laid over everything outside the camera frame (default: translucent black).
+    static void setOutsideShade(const QColor& color);
+
     void paint(const QRect& blitRect);
     void paintCached(const QRect& blitRect);
 

@@ -155,6 +155,15 @@ void CameraPainter::paintVisuals(QPainter& painter, const QRect& blitRect)
     painter.drawPixmap(mZeroPoint, mCameraPixmap);
 }
 
+namespace {
+QColor gOutsideShade(0, 0, 0, 80);
+}
+
+void CameraPainter::setOutsideShade(const QColor& color)
+{
+    gOutsideShade = color;
+}
+
 void CameraPainter::paintBorder(QPainter& painter, const QTransform& camTransform, const QRect& camRect)
 {
     painter.save();
@@ -163,7 +172,7 @@ void CameraPainter::paintBorder(QPainter& painter, const QTransform& camTransfor
     painter.setOpacity(1.0);
     painter.setWorldMatrixEnabled(true);
     painter.setPen(Qt::NoPen);
-    painter.setBrush(QColor(0, 0, 0, 80));
+    painter.setBrush(gOutsideShade);
     painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
 
     QTransform viewInverse = mViewTransform.inverted();
