@@ -7,10 +7,15 @@
 
 #include <algorithm>
 
+#include <QPainter>
+
 #include "actioncommands.h"
+#include "bitmapimage.h"
 #include "editor.h"
 #include "keyframe.h"
 #include "layer.h"
+#include "layerbitmap.h"
+#include "layercamera.h"
 #include "layermanager.h"
 #include "playbackmanager.h"
 
@@ -62,6 +67,34 @@ int StudioTimeline::lastUsedFrame() const
 bool StudioTimeline::hasKeyframe(Layer *layer, int frame) const
 {
     return layer && layer->keyExists(frame);
+}
+
+QImage StudioTimeline::thumbnail(Layer *layer, int frame, const QSize &size) const
+{
+    if (!layer || layer->type() != Layer::BITMAP || size.isEmpty()) return QImage();
+
+    BitmapImage *bitmap = static_cast<LayerBitmap *>(layer)->getBitmapImageAtFrame(frame);
+    if (!bitmap) return QImage();
+
+    auto *camera = static_cast<LayerCamera *>(m_core->editor()->layers()->getLastCameraLayer());
+    const QRectF paper = camera ? QRectF(camera->getViewRect()) : QRectF(bitmap->bounds());
+    if (paper.isEmpty()) return QImage();
+
+    QImage thumb(size, QImage::Format_ARGB32_Premultiplied);
+    thumb.fill(Qt::white);
+
+    QPainter painter(&thumb);
+    painter.setRenderHint(QPainter::SmoothPixmapTransform);
+    const qreal scale = qMax(size.width() / paper.width(), size.height() / paper.height());
+    painter.translate(size.width() / 2.0, size.height() / 2.0);
+    painter.scale(scale, scale);
+    painter.translate(-paper.center());
+
+    const QImage *image = bitmap->image();
+    if (image && !image->isNull()) {
+        painter.drawImage(bitmap->bounds().topLeft(), *image);
+    }
+    return thumb;
 }
 
 QList<int> StudioTimeline::keyframeTimes(Layer *layer) const

@@ -25,7 +25,7 @@ void registerDefaultModes(ModeManager *manager)
     flip.tools = {ToolIntent::Brush, ToolIntent::Pencil, ToolIntent::Eraser, ToolIntent::Fill,
                   ToolIntent::Picker, ToolIntent::Select};
     flip.defaultTool = ToolIntent::Brush;
-    flip.engineDocks = {QStringLiteral("ColorWheel")};
+    flip.engineDocks = {QStringLiteral("ColorWheel"), QStringLiteral("ColorPalette")};
     flip.createTimelinePanel = [](StudioCore *core, StudioTimelineModel *model, QWidget *parent) -> QWidget * {
         return new FrameStripPanel(core, model, parent);
     };
@@ -37,7 +37,7 @@ void registerDefaultModes(ModeManager *manager)
     motion.tagline = tr("Tracks and keyframes: move the camera and the drawings over time");
     motion.tools = {ToolIntent::Camera, ToolIntent::Move, ToolIntent::Select, ToolIntent::Brush, ToolIntent::Eraser};
     motion.defaultTool = ToolIntent::Camera;
-    motion.engineDocks = {QStringLiteral("ColorWheel"), QStringLiteral("ToolOption")};
+    motion.engineDocks = {QStringLiteral("ColorWheel"), QStringLiteral("ColorPalette"), QStringLiteral("ToolOption")};
     motion.createTimelinePanel = [](StudioCore *core, StudioTimelineModel *model, QWidget *parent) -> QWidget * {
         return new TracksPanel(core, model, parent);
     };
@@ -52,6 +52,5 @@ void registerDefaultModes(ModeManager *manager)
     studio.defaultTool = ToolIntent::Brush;
     studio.engineDocks = {QStringLiteral("ColorWheel"), QStringLiteral("ColorPalette"), QStringLiteral("ToolOption")};
     studio.showLayerStack = true;
-    studio.showStatusBar = true;
     manager->registerMode(studio);
 }

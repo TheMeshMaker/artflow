@@ -93,6 +93,38 @@ core_lib/  Pencil2D engine: Editor, managers, ScribbleArea canvas, tools, layers
   Ctrl+Alt+1/2/3 modes. Every other engine command has no key. Space+drag
   pans and the wheel zooms (the engine's defaults).
 
+## Look and feel
+
+The user found the first shell "like a Half-Life UI" and asked for
+something cool and sleek. The redesign lives entirely in `shell/`:
+
+* **One theme** (`ArtflowTheme`): Fusion style, a dark palette and one
+  app-wide style sheet built from colour tokens (window, panel, raised,
+  hover, line, text, muted, faint). One accent, violet `#8b7cff`; the
+  camera is amber `#ffb454` wherever it appears. The engine panels'
+  inline grey styles are stripped so the sheet reaches them.
+* **Own icons** (`shell/icons/`, `ArtflowIcons`): 46 line icons drawn on a
+  24 px grid, recoloured at runtime for normal, hover, checked and
+  disabled. They replace the engine's glossy icons in the panels we show.
+* **Custom controls** (`ShellControls`): the mode switch is one rounded
+  track with a sliding highlight; brush size and opacity are tall pill
+  sliders with the value written inside (empty when the tool has no
+  size); palette swatches are rounded tiles with a ring around the chosen
+  one (`SwatchDelegate`).
+* **Canvas:** white paper on a dark desk. `CameraPainter::setOutsideShade()`
+  (the one core patch for the look) darkens everything outside the camera
+  frame, and the grey border around the canvas is gone.
+* **Right column, same order in every mode:** layers (Studio), colour
+  wheel, swatches, tool options. The layers and tool options end right
+  below their content and grow back when a tool or a new layer needs more
+  room; the wheel stays about square; the swatches take the rest.
+* **Timelines fill the width:** Flip shows frame tiles with thumbnails of
+  each drawing and empty tiles to the right edge; Motion's lanes, ruler
+  and playhead run to the right edge too.
+* **Defaults version 2** turns the palette into a swatch grid
+  (`ColorPaletteViewMode`, `PreferredColorGridSize` = 28), once, so a
+  later change in the preferences sticks.
+
 ## Krita-lite request vs this base
 
 | Requested | Status |
@@ -110,11 +142,14 @@ core_lib/  Pencil2D engine: Editor, managers, ScribbleArea canvas, tools, layers
 
 ## Self-test
 
-39 of 39 checks pass (`H:\afdev\selftest\p2d-run7\report.txt`): brush
+41 of 41 checks pass (`H:\afdev\selftest\ui-run8\report.txt`): brush
 with pressure 0.7 and tilt, eraser, fill + undo, selection, mode round
 trip, Motion's camera tool, new/duplicate/delete frame, every pen-button
 check (undo, redo, bounce, no stroke, no menu, eraser events blocked), the
-key map, all 9 Studio tools, mouse drawing, size and opacity sliders.
+key map, all 9 Studio tools, mouse drawing, size and opacity sliders, and
+the tool options fitting without a scroll bar (before and after trying
+every tool). The self-test maximizes the window first and saves
+screenshots of every mode next to the report.
 
 ## Phase 2
 

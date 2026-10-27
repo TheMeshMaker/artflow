@@ -6,8 +6,10 @@
 #ifndef STUDIOTIMELINE_H
 #define STUDIOTIMELINE_H
 
+#include <QImage>
 #include <QList>
 #include <QObject>
+#include <QSize>
 
 class Layer;
 class StudioCore;
@@ -38,6 +40,10 @@ public:
     int lastUsedFrame() const;
 
     bool hasKeyframe(Layer *layer, int frame) const;
+
+    /// The drawing of a bitmap keyframe, fitted into \p size on white paper
+    /// (the camera frame is the paper). Null for other frames and layer types.
+    QImage thumbnail(Layer *layer, int frame, const QSize &size) const;
     QList<int> keyframeTimes(Layer *layer) const;
 
     /// Adds an empty drawing in the first free frame after \p frame and goes there.

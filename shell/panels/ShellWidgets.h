@@ -14,8 +14,8 @@ class StudioCore;
 
 namespace ShellWidgets {
 
-/// A flat tool button with an icon from the engine's "playful" theme.
-QToolButton *makeButton(const char *themeIcon, const QString &toolTip, QWidget *parent);
+/// A round icon button with one of the shell's line icons.
+QToolButton *makeButton(const QString &icon, const QString &toolTip, QWidget *parent);
 
 }
 

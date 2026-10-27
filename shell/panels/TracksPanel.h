@@ -32,6 +32,7 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) override;
 
 private:
+    int columnCount() const;
     void seekTo(const QPoint &pos, bool selectRow);
 
     StudioCore *m_core;

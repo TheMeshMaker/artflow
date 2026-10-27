@@ -16,7 +16,8 @@ namespace {
 
 QString toolIcon(const char *name)
 {
-    return QStringLiteral(":/icons/themes/playful/tools/%1.svg").arg(QLatin1String(name));
+    // Names of the shell's own line icons (shell/icons).
+    return QLatin1String(name);
 }
 
 }
@@ -40,16 +41,16 @@ QVector<ToolIntentInfo> StudioTools::allIntents()
     // The beginner set. Letters follow what people know from other painting
     // apps (B brush, E eraser, G fill, I picker, V move, ...).
     return {
-        {ToolIntent::Brush, QStringLiteral("brush"), tr("Brush"), QStringLiteral("B"), toolIcon("tool-brush"), BRUSH},
-        {ToolIntent::Pencil, QStringLiteral("pencil"), tr("Pencil"), QStringLiteral("N"), toolIcon("tool-pencil"), PENCIL},
-        {ToolIntent::Eraser, QStringLiteral("eraser"), tr("Eraser"), QStringLiteral("E"), toolIcon("tool-eraser"), ERASER},
-        {ToolIntent::Smudge, QStringLiteral("smudge"), tr("Smudge"), QStringLiteral("S"), toolIcon("tool-smudge"), SMUDGE},
-        {ToolIntent::Fill, QStringLiteral("fill"), tr("Fill"), QStringLiteral("G"), toolIcon("tool-bucket"), BUCKET},
-        {ToolIntent::Picker, QStringLiteral("picker"), tr("Picker"), QStringLiteral("I"), toolIcon("tool-eyedropper"), EYEDROPPER},
-        {ToolIntent::Select, QStringLiteral("select"), tr("Select"), QStringLiteral("M"), toolIcon("tool-select"), SELECT},
-        {ToolIntent::Move, QStringLiteral("move"), tr("Move"), QStringLiteral("V"), toolIcon("tool-move"), MOVE},
-        {ToolIntent::Shapes, QStringLiteral("shapes"), tr("Lines"), QStringLiteral("U"), toolIcon("tool-polyline"), POLYLINE},
-        {ToolIntent::Camera, QStringLiteral("camera"), tr("Camera"), QStringLiteral("C"), toolIcon("tool-camera-move"), CAMERA},
+        {ToolIntent::Brush, QStringLiteral("brush"), tr("Brush"), QStringLiteral("B"), toolIcon("brush"), BRUSH},
+        {ToolIntent::Pencil, QStringLiteral("pencil"), tr("Pencil"), QStringLiteral("N"), toolIcon("pencil"), PENCIL},
+        {ToolIntent::Eraser, QStringLiteral("eraser"), tr("Eraser"), QStringLiteral("E"), toolIcon("eraser"), ERASER},
+        {ToolIntent::Smudge, QStringLiteral("smudge"), tr("Smudge"), QStringLiteral("S"), toolIcon("smudge"), SMUDGE},
+        {ToolIntent::Fill, QStringLiteral("fill"), tr("Fill"), QStringLiteral("G"), toolIcon("fill"), BUCKET},
+        {ToolIntent::Picker, QStringLiteral("picker"), tr("Picker"), QStringLiteral("I"), toolIcon("picker"), EYEDROPPER},
+        {ToolIntent::Select, QStringLiteral("select"), tr("Select"), QStringLiteral("M"), toolIcon("select"), SELECT},
+        {ToolIntent::Move, QStringLiteral("move"), tr("Move"), QStringLiteral("V"), toolIcon("move"), MOVE},
+        {ToolIntent::Shapes, QStringLiteral("shapes"), tr("Lines"), QStringLiteral("U"), toolIcon("lines"), POLYLINE},
+        {ToolIntent::Camera, QStringLiteral("camera"), tr("Camera"), QStringLiteral("C"), toolIcon("camera"), CAMERA},
     };
 }
 

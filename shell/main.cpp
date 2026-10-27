@@ -18,6 +18,7 @@
 #include "platformhandler.h"
 
 #include "ArtflowSelfTest.h"
+#include "ArtflowTheme.h"
 #include "ArtflowShell.h"
 #include "BeginnerShortcuts.h"
 
@@ -45,6 +46,7 @@ int main(int argc, char *argv[])
     QApplication::setApplicationDisplayName(QStringLiteral("ArtFlow"));
     QApplication::setApplicationVersion(QStringLiteral(APP_VERSION));
     QApplication::setWindowIcon(QIcon(QStringLiteral(":/artflow/artflow.svg")));
+    ArtflowTheme::apply(app);
 
     // The beginner key map has to be in the settings before the main
     // window reads its shortcuts.
@@ -52,13 +54,22 @@ int main(int argc, char *argv[])
 
     {
         // ArtFlow's own defaults, applied once per version so a later change
-        // in the preferences sticks. The engine's newer undo system records
-        // strokes, fills, moves and frame edits as real undo steps and redoes
-        // them correctly (the legacy one cannot redo a deleted frame).
-        const int DefaultsVersion = 1;
+        // in the preferences sticks.
+        const int DefaultsVersion = 2;
         QSettings settings(PENCIL2D, PENCIL2D);
-        if (settings.value(QStringLiteral("ArtFlowDefaultsVersion")).toInt() < DefaultsVersion) {
+        const int applied = settings.value(QStringLiteral("ArtFlowDefaultsVersion")).toInt();
+        if (applied < 1) {
+            // The engine's newer undo system records strokes, fills, moves and
+            // frame edits as real undo steps and redoes them correctly (the
+            // legacy one cannot redo a deleted frame).
             settings.setValue(SETTING_NEW_UNDO_REDO_ON, true);
+        }
+        if (applied < 2) {
+            // The palette as a grid of swatches rather than a list of names.
+            settings.setValue(QStringLiteral("ColorPaletteViewMode"), QStringLiteral("GridMode"));
+            settings.setValue(QStringLiteral("PreferredColorGridSize"), 28);
+        }
+        if (applied < DefaultsVersion) {
             settings.setValue(QStringLiteral("ArtFlowDefaultsVersion"), DefaultsVersion);
         }
     }

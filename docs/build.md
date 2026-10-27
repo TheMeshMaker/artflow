@@ -70,6 +70,7 @@ The one launch of stock `pencil2d.exe` during set-up created
 |---|---|
 | `core_lib/src/util/pencildef.h` | `#ifndef PENCIL2D` guard around the settings name |
 | `CMakeLists.txt` | `BUILD_ARTFLOW` option that includes `shell/shell.cmake` |
+| `core_lib/src/camerapainter.h/.cpp` | `CameraPainter::setOutsideShade()`: the shade outside the camera frame can be chosen (default unchanged) |
 
 Everything else under `core_lib/` and `app/` is untouched; ArtFlow's code
 is in `studiocore/` and `shell/`.

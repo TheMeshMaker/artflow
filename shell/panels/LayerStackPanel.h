@@ -22,6 +22,10 @@ class LayerStackPanel : public QWidget
 public:
     LayerStackPanel(StudioCore *core, StudioTimelineModel *model, QWidget *parent = nullptr);
 
+Q_SIGNALS:
+    /// The panel's maximum height changed with the number of layers.
+    void heightLimitChanged();
+
 private Q_SLOTS:
     void slotModelReset();
 

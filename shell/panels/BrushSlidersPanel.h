@@ -8,13 +8,12 @@
 
 #include <QWidget>
 
-class QLabel;
-class QSlider;
+class PillSlider;
 class StudioCore;
 
 /**
  * Two tall sliders beside the canvas: brush size and opacity. They follow
- * the engine too, so [ and ] or picking a preset move them.
+ * the engine too, so [ and ] or the tool options move them.
  */
 class BrushSlidersPanel : public QWidget
 {
@@ -27,10 +26,8 @@ private Q_SLOTS:
 
 private:
     StudioCore *m_core;
-    QSlider *m_size;
-    QSlider *m_opacity;
-    QLabel *m_sizeLabel;
-    QLabel *m_opacityLabel;
+    PillSlider *m_size;
+    PillSlider *m_opacity;
 };
 
 #endif // ARTFLOW_BRUSHSLIDERSPANEL_H

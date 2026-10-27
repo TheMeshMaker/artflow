@@ -20,20 +20,22 @@
 #include "StudioLayers.h"
 #include "StudioTimelineModel.h"
 
+#include "ArtflowIcons.h"
+#include "ArtflowTheme.h"
 #include "ShellWidgets.h"
 
 namespace {
 
-const int RowHeight = 34;
+const int RowHeight = 44;
 const int IconSize = 18;
 
-QString typeIcon(int type)
+QIcon typeIcon(int type)
 {
     switch (type) {
-    case Layer::CAMERA: return QStringLiteral(":/icons/themes/playful/timeline/cell-camera.svg");
-    case Layer::VECTOR: return QStringLiteral(":/icons/themes/playful/timeline/cell-vector.svg");
-    case Layer::SOUND: return QStringLiteral(":/icons/themes/playful/timeline/cell-sound.svg");
-    default: return QStringLiteral(":/icons/themes/playful/timeline/cell-bitmap.svg");
+    case Layer::CAMERA: return ArtflowIcons::icon(QStringLiteral("camera"), ArtflowTheme::camera());
+    case Layer::VECTOR: return ArtflowIcons::icon(QStringLiteral("layer-vector"));
+    case Layer::SOUND: return ArtflowIcons::icon(QStringLiteral("layer-sound"));
+    default: return ArtflowIcons::icon(QStringLiteral("layer-bitmap"));
     }
 }
 
@@ -50,7 +52,7 @@ public:
     static QRect eyeRect(const QStyleOptionViewItem &option)
     {
         const QRect r = option.rect;
-        return QRect(r.left() + 8, r.center().y() - IconSize / 2, IconSize, IconSize);
+        return QRect(r.left() + 14, r.center().y() - IconSize / 2, IconSize, IconSize);
     }
 
     QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override
@@ -60,38 +62,40 @@ public:
 
     void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override
     {
-        const QPalette pal = option.palette;
         const bool active = index.data(StudioTimelineModel::IsActiveLayerRole).toBool();
         const bool visible = index.data(StudioTimelineModel::IsVisibleRole).toBool();
+        const bool hovered = option.state & QStyle::State_MouseOver;
 
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing);
+
+        const QRectF card = QRectF(option.rect).adjusted(2, 3, -2, -3);
+        if (active || hovered) {
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(active ? ArtflowTheme::raised() : ArtflowTheme::panel().lighter(115));
+            painter->drawRoundedRect(card, 10, 10);
+        }
         if (active) {
-            painter->fillRect(option.rect, pal.color(QPalette::Highlight));
-        } else if (option.state & QStyle::State_MouseOver) {
-            QColor hover = pal.color(QPalette::Highlight);
-            hover.setAlphaF(0.15);
-            painter->fillRect(option.rect, hover);
+            painter->setBrush(ArtflowTheme::accent());
+            painter->drawRoundedRect(QRectF(card.left(), card.top() + 9, 3, card.height() - 18), 1.5, 1.5);
         }
 
-        QColor text = pal.color(active ? QPalette::HighlightedText : QPalette::WindowText);
+        ArtflowIcons::icon(visible ? QStringLiteral("eye") : QStringLiteral("eye-off"))
+            .paint(painter, eyeRect(option), Qt::AlignCenter, hovered || active ? QIcon::Active : QIcon::Normal);
 
-        // Eye: a filled dot when visible, an empty ring when hidden.
-        const QRectF eye = QRectF(eyeRect(option)).adjusted(3, 3, -3, -3);
-        painter->setPen(QPen(text, 1.6));
-        painter->setBrush(visible ? QBrush(text) : Qt::NoBrush);
-        painter->drawEllipse(eye);
+        const QRect type(eyeRect(option).right() + 12, option.rect.center().y() - IconSize / 2, IconSize, IconSize);
+        typeIcon(index.data(StudioTimelineModel::LayerTypeRole).toInt())
+            .paint(painter, type, Qt::AlignCenter, visible ? QIcon::Normal : QIcon::Disabled);
 
-        const QRect type(eyeRect(option).right() + 10, option.rect.center().y() - IconSize / 2, IconSize, IconSize);
-        QIcon(typeIcon(index.data(StudioTimelineModel::LayerTypeRole).toInt())).paint(painter, type);
-
-        if (!visible) text.setAlphaF(0.5);
+        QColor text = active ? ArtflowTheme::text() : ArtflowTheme::textMuted();
+        if (!visible) text = ArtflowTheme::textFaint();
         painter->setPen(text);
-        const QRect textRect(type.right() + 8, option.rect.top(), option.rect.right() - type.right() - 12,
+        painter->setFont(ArtflowTheme::uiFont(9.5, active ? QFont::DemiBold : QFont::Normal));
+        const QRect textRect(type.right() + 10, option.rect.top(), option.rect.right() - type.right() - 16,
                              option.rect.height());
         painter->drawText(textRect, Qt::AlignVCenter | Qt::AlignLeft,
-                          option.fontMetrics.elidedText(index.data(Qt::DisplayRole).toString(), Qt::ElideRight,
-                                                        textRect.width()));
+                          painter->fontMetrics().elidedText(index.data(Qt::DisplayRole).toString(), Qt::ElideRight,
+                                                            textRect.width()));
         painter->restore();
     }
 
@@ -127,14 +131,18 @@ LayerStackPanel::LayerStackPanel(StudioCore *core, StudioTimelineModel *model, Q
     , m_core(core)
     , m_model(model)
 {
+    setObjectName(QStringLiteral("artflowPanel"));
+    setAttribute(Qt::WA_StyledBackground);
+
     QVBoxLayout *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(6, 6, 6, 6);
+    layout->setContentsMargins(12, 12, 12, 12);
     layout->setSpacing(4);
 
     QHBoxLayout *bar = new QHBoxLayout();
-    QLabel *title = new QLabel(QStringLiteral("<b>%1</b>").arg(tr("Layers")), this);
-    QToolButton *add = ShellWidgets::makeButton("timeline/layer-add", tr("New drawing layer"), this);
-    QToolButton *remove = ShellWidgets::makeButton("timeline/layer-remove", tr("Delete layer"), this);
+    QLabel *title = new QLabel(tr("Layers"), this);
+    title->setObjectName(QStringLiteral("panelTitle"));
+    QToolButton *add = ShellWidgets::makeButton(QStringLiteral("layer-add"), tr("New drawing layer"), this);
+    QToolButton *remove = ShellWidgets::makeButton(QStringLiteral("layer-delete"), tr("Delete layer"), this);
     connect(add, &QToolButton::clicked, this, [this]() { m_core->layers()->addDrawingLayer(); });
     connect(remove, &QToolButton::clicked, this, [this]() { m_core->layers()->removeActiveLayer(); });
     bar->addWidget(title);
@@ -154,11 +162,23 @@ LayerStackPanel::LayerStackPanel(StudioCore *core, StudioTimelineModel *model, Q
     layout->addWidget(m_list, 1);
 
     connect(model, &QAbstractItemModel::modelReset, this, &LayerStackPanel::slotModelReset);
-    setMinimumWidth(200);
+    setMinimumWidth(250);
+    slotModelReset();
 }
 
 void LayerStackPanel::slotModelReset()
 {
+    // Up to six layers show without scrolling, and the panel ends right
+    // below the last one.
+    const QMargins margins = layout()->contentsMargins();
+    const int header = layout()->itemAt(0)->sizeHint().height();
+    const int rows = qBound(2, m_model->rowCount(), 6);
+    const int height = margins.top() + header + layout()->spacing() + rows * RowHeight + margins.bottom() + 4;
+    if (height != maximumHeight()) {
+        setMaximumHeight(height);
+        Q_EMIT heightLimitChanged();
+    }
+
     const int row = m_model->activeRow();
     if (row >= 0) m_list->scrollTo(m_model->index(row, 0));
 }

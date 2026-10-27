@@ -40,7 +40,7 @@ struct ToolIntentInfo
     QString key;       ///< stable id used in settings, e.g. "brush"
     QString label;     ///< user-visible name
     QString shortcut;  ///< beginner shortcut (QKeySequence text)
-    QString icon;      ///< resource path of the icon
+    QString icon;      ///< icon name (the shell's icon set)
     ToolType tool;     ///< engine tool
 };
 

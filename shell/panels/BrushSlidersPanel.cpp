@@ -7,13 +7,13 @@
 
 #include <cmath>
 
-#include <QLabel>
-#include <QSignalBlocker>
-#include <QSlider>
 #include <QVBoxLayout>
 
 #include "StudioCore.h"
 #include "StudioTools.h"
+
+#include "ArtflowIcons.h"
+#include "ShellControls.h"
 
 namespace {
 
@@ -32,59 +32,45 @@ qreal sliderToSize(int value)
     return std::pow(MaxSize, qreal(value) / SliderSteps);
 }
 
-QSlider *makeSlider(QWidget *parent)
-{
-    QSlider *slider = new QSlider(Qt::Vertical, parent);
-    slider->setMinimumHeight(160);
-    slider->setFocusPolicy(Qt::NoFocus);
-    return slider;
-}
-
 }
 
 BrushSlidersPanel::BrushSlidersPanel(StudioCore *core, QWidget *parent)
     : QWidget(parent)
     , m_core(core)
 {
-    QVBoxLayout *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(6, 10, 6, 10);
-    layout->setSpacing(4);
+    setObjectName(QStringLiteral("artflowPanel"));
+    setAttribute(Qt::WA_StyledBackground);
 
-    m_sizeLabel = new QLabel(this);
-    m_sizeLabel->setAlignment(Qt::AlignCenter);
-    m_size = makeSlider(this);
+    QVBoxLayout *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(10, 14, 10, 14);
+    layout->setSpacing(18);
+
+    m_size = new PillSlider(this);
     m_size->setRange(0, SliderSteps);
+    m_size->setIcon(ArtflowIcons::icon(QStringLiteral("size")));
     m_size->setToolTip(tr("Brush size  ( [ smaller, ] bigger )"));
 
-    m_opacityLabel = new QLabel(this);
-    m_opacityLabel->setAlignment(Qt::AlignCenter);
-    m_opacity = makeSlider(this);
+    m_opacity = new PillSlider(this);
     m_opacity->setRange(1, 100);
+    m_opacity->setIcon(ArtflowIcons::icon(QStringLiteral("opacity")));
     m_opacity->setToolTip(tr("Brush opacity"));
 
-    QLabel *sizeTitle = new QLabel(tr("Size", "brush size, short"), this);
-    QLabel *opacityTitle = new QLabel(tr("Opacity", "brush opacity, short"), this);
-    sizeTitle->setAlignment(Qt::AlignCenter);
-    opacityTitle->setAlignment(Qt::AlignCenter);
-
-    layout->addWidget(sizeTitle);
+    // On a big screen the sliders stop growing and the rest stays empty.
+    m_size->setMaximumHeight(300);
+    m_opacity->setMaximumHeight(220);
     layout->addWidget(m_size, 3, Qt::AlignHCenter);
-    layout->addWidget(m_sizeLabel);
-    layout->addSpacing(16);
-    layout->addWidget(opacityTitle);
     layout->addWidget(m_opacity, 2, Qt::AlignHCenter);
-    layout->addWidget(m_opacityLabel);
     layout->addStretch(1);
 
-    connect(m_size, &QSlider::valueChanged, this, [this](int value) {
+    connect(m_size, &PillSlider::valueChanged, this, [this](int value) {
         m_core->tools()->setBrushSize(sliderToSize(value));
     });
-    connect(m_opacity, &QSlider::valueChanged, this, [this](int value) {
+    connect(m_opacity, &PillSlider::valueChanged, this, [this](int value) {
         m_core->tools()->setBrushOpacity(value / 100.0);
     });
     connect(core->tools(), &StudioTools::brushChanged, this, &BrushSlidersPanel::slotBrushChanged);
 
-    setFixedWidth(64);
+    setFixedWidth(62);
     slotBrushChanged();
 }
 
@@ -93,15 +79,10 @@ void BrushSlidersPanel::slotBrushChanged()
     const qreal size = m_core->tools()->brushSize();
     const qreal opacity = m_core->tools()->brushOpacity();
 
-    {
-        QSignalBlocker blocker(m_size);
-        m_size->setValue(sizeToSlider(size));
-    }
-    {
-        QSignalBlocker blocker(m_opacity);
-        m_opacity->setValue(qRound(opacity * 100));
-    }
     m_size->setEnabled(size > 0);
-    m_sizeLabel->setText(tr("%1 px", "brush size in pixels").arg(qRound(size)));
-    m_opacityLabel->setText(tr("%1%", "percent").arg(qRound(opacity * 100)));
+    m_size->setValue(sizeToSlider(size));
+    m_size->setValueText(size > 0 ? QString::number(qRound(size)) : QStringLiteral("–"));
+
+    m_opacity->setValue(qRound(opacity * 100));
+    m_opacity->setValueText(QString::number(qRound(opacity * 100)));
 }

@@ -17,6 +17,7 @@
 #include <QMouseEvent>
 #include <QPointer>
 #include <QPointingDevice>
+#include <QScrollArea>
 #include <QTabletEvent>
 #include <QTextStream>
 #include <QTimer>
@@ -78,6 +79,8 @@ public:
     void start()
     {
         log(QStringLiteral("ArtFlow self-test (Pencil2D core), %1").arg(QDateTime::currentDateTime().toString(Qt::ISODate)));
+        // Judge the layout the way people see it: maximized.
+        m_shell->window()->showMaximized();
         QTimer::singleShot(1500, this, [this]() { runNext(); });
     }
 
@@ -95,6 +98,16 @@ private:
         if (!ok) ++m_failures;
         log(QStringLiteral("%1  %2%3").arg(ok ? "PASS" : "FAIL", name,
                                              details.isEmpty() ? QString() : QStringLiteral("  (%1)").arg(details)));
+    }
+
+    void checkToolOptionsFit(const QString &name)
+    {
+        QDockWidget *options = m_shell->window()->findChild<QDockWidget *>(QStringLiteral("ToolOption"));
+        QScrollArea *scroll = options ? options->findChild<QScrollArea *>(QStringLiteral("scrollArea")) : nullptr;
+        const int needed = scroll && scroll->widget() ? scroll->widget()->sizeHint().height() : -1;
+        const int shown = scroll ? scroll->viewport()->height() : -1;
+        check(name, scroll && shown >= needed,
+              QStringLiteral("needs %1 px, shows %2 px, section %3 px").arg(needed).arg(shown).arg(options ? options->height() : -1));
     }
 
     void settle(int rounds = 5)
@@ -307,6 +320,7 @@ private:
                              .arg(dock->isFloating() ? QStringLiteral("(floating)") : QString());
             }
             log(QStringLiteral("INFO  docks in Studio: %1").arg(docks.join(QStringLiteral(", "))));
+            checkToolOptionsFit(QStringLiteral("tool options fit without scrolling"));
             screenshot(QStringLiteral("mode-studio"));
             check(QStringLiteral("studio mode active"), m_shell->modes()->currentModeId() == QLatin1String("studio"));
             m_shell->modes()->switchTo(QStringLiteral("flip"));
@@ -372,7 +386,7 @@ private:
             check(QStringLiteral("barrel right-press is swallowed"), pen->eventFilter(canvas(), &rightPress));
             QTabletEvent tipPress = tabletEvent(QEvent::TabletPress, Qt::LeftButton, Qt::LeftButton);
             check(QStringLiteral("tip press during the gesture starts no stroke"), pen->eventFilter(canvas(), &tipPress));
-            QContextMenuEvent menu(QContextMenuEvent::Mouse, at(0, 0).toPoint());
+            QContextMenuEvent menu(QContextMenuEvent::Mouse, at(0, 0).toPoint(), canvas()->mapToGlobal(at(0, 0).toPoint()));
             check(QStringLiteral("no context menu from the pen button"), pen->eventFilter(canvas(), &menu));
 
             const int keys = m_core->timeline()->keyframeTimes(editor()->layers()->currentLayer()).size();
@@ -458,6 +472,7 @@ private:
             check(QStringLiteral("opacity slider value reaches the colour"), qAbs(m_core->tools()->brushOpacity() - 0.5) < 0.01,
                   QString::number(m_core->tools()->brushOpacity()));
             m_core->tools()->setBrushOpacity(1.0);
+            checkToolOptionsFit(QStringLiteral("tool options fit again after trying every tool"));
             screenshot(QStringLiteral("studio-final"));
             m_shell->modes()->switchTo(QStringLiteral("flip"));
         };

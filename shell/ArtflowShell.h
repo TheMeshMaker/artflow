@@ -21,6 +21,7 @@ class QToolButton;
 class QWidget;
 class MainWindow2;
 class ModeManager;
+class ModeSwitch;
 class StudioCore;
 class StudioTimelineModel;
 
@@ -54,6 +55,9 @@ private Q_SLOTS:
     void slotIntentChanged(ToolIntent intent);
     void slotHistoryChanged();
     void applyChrome();
+    void fitToolOptions();
+    void resizeRightColumn();
+    void fixWindowTitle();
 
 private:
     void buildTopBar();
@@ -61,6 +65,8 @@ private:
     void buildActions();
     void rebuildToolStrip();
     void populateMenu();
+    void arrangeRightColumn(int width);
+    QList<QDockWidget *> rightColumn() const;
 
 private:
     QPointer<MainWindow2> m_window;
@@ -69,7 +75,7 @@ private:
     StudioTimelineModel *m_model;
 
     QToolBar *m_topBar {nullptr};
-    QButtonGroup *m_modeButtons {nullptr};
+    ModeSwitch *m_modeSwitch {nullptr};
     QWidget *m_toolStrip {nullptr};
     QHBoxLayout *m_toolStripLayout {nullptr};
     QButtonGroup *m_toolButtons {nullptr};

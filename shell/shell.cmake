@@ -18,15 +18,18 @@ set(ARTFLOW_STUDIOCORE_SOURCES
 )
 
 set(ARTFLOW_SHELL_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell/ArtflowIcons.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/ArtflowModes.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/ArtflowSelfTest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/ArtflowShell.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell/ArtflowTheme.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/BeginnerShortcuts.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/ModeManager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/PenButtonsDialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/panels/BrushSlidersPanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/panels/FrameStripPanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/panels/LayerStackPanel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/shell/panels/ShellControls.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/panels/ShellWidgets.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/panels/TracksPanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/shell/artflow.qrc

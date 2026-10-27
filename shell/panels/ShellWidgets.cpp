@@ -14,13 +14,17 @@
 #include "StudioPlayback.h"
 #include "StudioTimeline.h"
 
-QToolButton *ShellWidgets::makeButton(const char *themeIcon, const QString &toolTip, QWidget *parent)
+#include "ArtflowIcons.h"
+#include "ArtflowTheme.h"
+
+QToolButton *ShellWidgets::makeButton(const QString &icon, const QString &toolTip, QWidget *parent)
 {
     QToolButton *button = new QToolButton(parent);
-    button->setIcon(QIcon(QStringLiteral(":/icons/themes/playful/%1.svg").arg(QLatin1String(themeIcon))));
+    button->setObjectName(QStringLiteral("iconButton"));
+    button->setIcon(ArtflowIcons::icon(icon));
     button->setToolTip(toolTip);
-    button->setAutoRaise(true);
-    button->setIconSize(QSize(22, 22));
+    button->setIconSize(QSize(20, 20));
+    button->setCursor(Qt::PointingHandCursor);
     return button;
 }
 
@@ -32,22 +36,16 @@ TransportBar::TransportBar(StudioCore *core, QWidget *parent)
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(2);
 
-    QToolButton *first = ShellWidgets::makeButton("controls/control-play-start", tr("First frame"), this);
-    QToolButton *previous = ShellWidgets::makeButton("controls/control-play-start", tr("Previous frame"), this);
-    previous->setIcon(QIcon());
-    previous->setText(QStringLiteral("‹"));
-    m_play = ShellWidgets::makeButton("controls/control-play", tr("Play"), this);
-    QToolButton *next = ShellWidgets::makeButton("controls/control-play-end", tr("Next frame"), this);
-    next->setIcon(QIcon());
-    next->setText(QStringLiteral("›"));
-    QToolButton *last = ShellWidgets::makeButton("controls/control-play-end", tr("Last frame"), this);
-
-    for (QToolButton *button : {previous, next}) {
-        QFont font = button->font();
-        font.setPointSizeF(font.pointSizeF() * 1.6);
-        font.setBold(true);
-        button->setFont(font);
-    }
+    QToolButton *first = ShellWidgets::makeButton(QStringLiteral("first"), tr("First frame"), this);
+    QToolButton *previous = ShellWidgets::makeButton(QStringLiteral("prev"), tr("Previous frame  (Left)"), this);
+    m_play = ShellWidgets::makeButton(QStringLiteral("play"), tr("Play"), this);
+    m_play->setObjectName(QStringLiteral("playButton"));
+    m_play->setFixedSize(40, 40);
+    m_play->setStyleSheet(QStringLiteral("QToolButton#playButton { border-radius: 20px; padding: 0; background: %1; }"
+                                         "QToolButton#playButton:hover { background: %2; }")
+                              .arg(ArtflowTheme::accent().name(), ArtflowTheme::accentHover().name()));
+    QToolButton *next = ShellWidgets::makeButton(QStringLiteral("next"), tr("Next frame  (Right)"), this);
+    QToolButton *last = ShellWidgets::makeButton(QStringLiteral("last"), tr("Last frame"), this);
 
     StudioPlayback *playback = core->playback();
     connect(first, &QToolButton::clicked, playback, &StudioPlayback::firstFrame);
@@ -60,7 +58,9 @@ TransportBar::TransportBar(StudioCore *core, QWidget *parent)
     m_fps = new QSpinBox(this);
     m_fps->setRange(1, 60);
     m_fps->setSuffix(tr(" fps", "frames per second, after the number"));
-    m_fps->setToolTip(tr("Playback speed"));
+    m_fps->setToolTip(tr("Playback speed (scroll to change)"));
+    m_fps->setAlignment(Qt::AlignCenter);
+    m_fps->setFixedWidth(70);
     connect(m_fps, QOverload<int>::of(&QSpinBox::valueChanged), core->timeline(), &StudioTimeline::setFrameRate);
     connect(core->timeline(), &StudioTimeline::frameRateChanged, this, &TransportBar::slotFrameRateChanged);
 
@@ -69,7 +69,7 @@ TransportBar::TransportBar(StudioCore *core, QWidget *parent)
     layout->addWidget(m_play);
     layout->addWidget(next);
     layout->addWidget(last);
-    layout->addSpacing(6);
+    layout->addSpacing(8);
     layout->addWidget(m_fps);
 
     slotPlayingChanged(playback->isPlaying());
@@ -78,8 +78,7 @@ TransportBar::TransportBar(StudioCore *core, QWidget *parent)
 
 void TransportBar::slotPlayingChanged(bool playing)
 {
-    m_play->setIcon(QIcon(playing ? QStringLiteral(":/icons/themes/playful/controls/control-stop.svg")
-                                  : QStringLiteral(":/icons/themes/playful/controls/control-play.svg")));
+    m_play->setIcon(ArtflowIcons::icon(playing ? QStringLiteral("stop") : QStringLiteral("play"), Qt::white));
     m_play->setToolTip(playing ? tr("Stop") : tr("Play"));
 }
 
