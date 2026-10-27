@@ -142,14 +142,15 @@ something cool and sleek. The redesign lives entirely in `shell/`:
 
 ## Self-test
 
-41 of 41 checks pass (`H:\afdev\selftest\ui-run8\report.txt`): brush
-with pressure 0.7 and tilt, eraser, fill + undo, selection, mode round
+42 of 42 checks pass (`H:\afdev\selftest\ui-run14\report.txt`): window
+title, brush with pressure 0.7 and tilt, eraser, fill + undo, selection, mode round
 trip, Motion's camera tool, new/duplicate/delete frame, every pen-button
 check (undo, redo, bounce, no stroke, no menu, eraser events blocked), the
 key map, all 9 Studio tools, mouse drawing, size and opacity sliders, and
 the tool options fitting without a scroll bar (before and after trying
-every tool). The self-test maximizes the window first and saves
-screenshots of every mode next to the report.
+every tool). The self-test maximizes the window and waits until its size
+stops changing before the first stroke, and saves screenshots of every
+mode next to the report.
 
 ## Phase 2
 
